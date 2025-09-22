@@ -1,0 +1,51 @@
+/* --- Voice Assistant --- */
+.voice-assistant-gate-view {
+    padding: 1rem;
+    height: 100%;
+}
+
+.agent-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.agent-list-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.agent-list-item:hover {
+    background-color: rgba(0,0,0,0.05);
+}
+
+.agent-list-info {
+    flex-grow: 1;
+}
+
+.agent-list-info h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #050505;
+}
+
+.agent-list-info p {
+    font-size: 0.9rem;
+    color: #65676b;
+    margin-top: 2px;
+}
+
+/* Dark Mode */
+body.dark-mode .agent-list-item:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+body.dark-mode .agent-list-info h3 {
+    color: var(--dm-text-primary);
+}
+body.dark-mode .agent-list-info p {
+    color: var(--dm-text-secondary);
+}

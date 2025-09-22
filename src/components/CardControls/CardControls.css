@@ -1,0 +1,40 @@
+.card-controls {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    z-index: 5;
+}
+
+.card-control-btn {
+    background: rgba(0,0,0,0.1);
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-dark);
+    transition: background 0.2s;
+}
+
+.card-control-btn:hover {
+    background: rgba(0,0,0,0.2);
+}
+
+.card-control-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+body.dark-mode .card-control-btn {
+    background: rgba(255,255,255,0.1);
+    color: var(--dm-text-primary);
+}
+
+body.dark-mode .card-control-btn:hover {
+    background: rgba(255,255,255,0.2);
+}

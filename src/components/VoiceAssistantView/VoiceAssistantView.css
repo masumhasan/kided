@@ -1,0 +1,153 @@
+.voice-assistant-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: var(--white);
+    color: var(--text-dark);
+}
+
+/* --- Chat Header --- */
+.va-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background-color: var(--messenger-header-light);
+    border-bottom: 1px solid var(--messenger-border-light);
+    flex-shrink: 0;
+}
+.va-back-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--messenger-user-bubble-light);
+    padding: 0.5rem;
+}
+.va-back-btn svg { width: 28px; height: 28px; }
+
+.va-header-info h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.va-header-controls {
+    margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+}
+.va-header-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--messenger-user-bubble-light);
+    padding: 0.5rem;
+}
+
+/* --- Messages Area --- */
+.va-messages-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.va-chat-bubble-wrapper { 
+    display: flex; 
+    max-width: 80%; 
+    margin-bottom: 0.5rem;
+}
+.va-chat-bubble-wrapper.user { align-self: flex-end; }
+.va-chat-bubble-wrapper.buddy { align-self: flex-start; }
+
+.va-chat-bubble {
+    padding: 0.75rem 1rem;
+    border-radius: 18px;
+    line-height: 1.5;
+    font-size: 1rem;
+}
+.va-chat-bubble-wrapper.user .va-chat-bubble {
+    background-color: var(--messenger-user-bubble-light);
+    color: var(--white);
+    border-bottom-right-radius: 4px;
+}
+.va-chat-bubble-wrapper.buddy .va-chat-bubble {
+    background-color: var(--messenger-buddy-bubble-light);
+    color: var(--text-dark);
+    border-bottom-left-radius: 4px;
+}
+.typing-indicator span {
+    height: 8px; width: 8px; background-color: #9ca3af; border-radius: 50%; display: inline-block;
+    animation: typing-fade 1.5s infinite;
+    margin: 0 1px;
+}
+.typing-indicator span:nth-child(1) { animation-delay: 0s; }
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing-fade { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+/* --- Input Area --- */
+.va-input-area {
+    display: flex;
+    padding: 0.75rem;
+    gap: 0.75rem;
+    align-items: center;
+    border-top: 1px solid var(--messenger-border-light);
+    background-color: var(--messenger-header-light);
+    flex-shrink: 0;
+}
+.va-text-input {
+    flex-grow: 1;
+    background: var(--messenger-input-bg-light);
+    border: none;
+    border-radius: 20px;
+    padding: 0.65rem 1rem;
+    color: var(--text-dark);
+    font-size: 1rem;
+    font-family: var(--font-family-body);
+}
+.va-text-input:focus { outline: none; }
+
+.va-send-btn {
+    background: none; border: none; color: var(--messenger-user-bubble-light);
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: transform 0.2s; flex-shrink: 0;
+}
+.va-send-btn:disabled { color: #bcc0c4; }
+
+/* --- Dark Mode --- */
+body.dark-mode .voice-assistant-view {
+    background-color: var(--dm-voice-assistant-bg);
+}
+body.dark-mode .va-header {
+    background-color: var(--messenger-header-dark);
+    border-bottom-color: var(--messenger-border-dark);
+}
+body.dark-mode .va-back-btn,
+body.dark-mode .va-header-btn {
+    color: var(--messenger-user-bubble-dark);
+}
+body.dark-mode .va-header-info h2 {
+    color: var(--dm-text-primary);
+}
+body.dark-mode .va-chat-bubble-wrapper.user .va-chat-bubble {
+    background-color: var(--messenger-user-bubble-dark);
+    color: white;
+}
+body.dark-mode .va-chat-bubble-wrapper.buddy .va-chat-bubble {
+    background-color: var(--messenger-buddy-bubble-dark);
+    color: var(--dm-text-primary);
+}
+body.dark-mode .va-input-area {
+    background-color: var(--messenger-header-dark);
+    border-top-color: var(--messenger-border-dark);
+}
+body.dark-mode .va-text-input {
+    background-color: var(--messenger-input-bg-dark);
+    color: var(--dm-text-primary);
+}
+body.dark-mode .va-send-btn {
+    color: var(--messenger-user-bubble-dark);
+}
+body.dark-mode .va-send-btn:disabled {
+    color: #8a8d91;
+}

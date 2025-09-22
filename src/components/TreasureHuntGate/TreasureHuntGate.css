@@ -1,0 +1,8 @@
+/* No specific styles needed, reuses .quiz-gate-view from global styles */
+.quiz-gate-view .card p {
+    margin-bottom: 0;
+}
+.quiz-gate-view .card .btn {
+    width: 100%;
+    margin-top: 1.5rem;
+}

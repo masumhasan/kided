@@ -1,0 +1,59 @@
+/* --- Language Selector --- */
+.language-selector-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    padding: 1rem;
+}
+.language-selector-card {
+    background-color: var(--white);
+    color: var(--text-dark);
+    border-radius: 24px;
+    padding: 2rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+.language-selector-card h3 {
+    font-family: var(--font-family-heading);
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+.language-selector-card button {
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    padding: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.language-selector-card button:hover {
+    background-color: #ddd;
+}
+
+body.dark-mode .language-selector-card {
+    background-color: var(--dm-surface1);
+    color: var(--dm-text-primary);
+}
+body.dark-mode .language-selector-card button {
+    background-color: var(--dm-surface2);
+    color: var(--dm-text-primary);
+}
+body.dark-mode .language-selector-card button:hover {
+    background-color: #444;
+}

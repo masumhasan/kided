@@ -1,0 +1,207 @@
+:root {
+  /* NEW THEME: "Cosmic Fun" */
+  --welcome-bg-start: #2E3192; /* Deep Indigo */
+  --welcome-bg-end: #1BFFFF; /* Bright Cyan */
+  
+  --media-bg: #FBB03B; /* Warm Orange/Yellow */
+  --quiz-bg: #D4145A; /* Strong Pink/Magenta */
+  --story-bg: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+  --rewards-bg-gradient: linear-gradient(135deg, #662D8C, #ED1E79); /* Purple to Pink */
+  --homework-bg: #009688; /* Teal */
+  --voice-assistant-bg: #f0f2f5; /* Light mode bg for chat list */
+  --playground-bg: #166534; /* Dark Green */
+  --treasure-hunt-bg: #96c9eaf5; /* Light blue for adventure */
+  --learning-camp-bg: linear-gradient(135deg, #f12711, #f5af19); /* Orange/Yellow gradient for camp */
+  --home-bg-light: #f5f6fa; /* Lighter than before */
+  --profile-bg: #f5f6fa;
+
+  --action-cyan: #00aeef;
+  --action-cyan-dark: #008dbf;
+  
+  --white: #FFFFFF;
+  --light-gray: #F0F0F0;
+  --text-dark: #2c3e50;
+  --text-light: #f0f0f0;
+  --green-correct: #00A651;
+  --red-incorrect: #ED1C24;
+  --yellow-connecting: #FBB03B;
+  --nav-active-color: #662D8C; /* Purple from gradient */
+  
+  --font-family-heading: 'Fredoka', sans-serif;
+  --font-family-body: 'Poppins', sans-serif;
+
+  /* Messenger UI Colors */
+  --messenger-user-bubble-light: #0084ff;
+  --messenger-buddy-bubble-light: #e4e6eb;
+  --messenger-input-bg-light: #f0f2f5;
+  --messenger-header-light: #ffffff;
+  --messenger-border-light: #ced0d4;
+
+  /* Dark Mode Variables (tweaked to match) */
+  --dm-bg: #121212;
+  --dm-surface1: #1E1E1E;
+  --dm-surface2: #2A2A2A;
+  --dm-text-primary: #E0E0E0;
+  --dm-text-secondary: #BDBDBD;
+  --dm-rewards-bg: #2c0b3a;
+  --dm-story-bg: #1e113b;
+  --dm-homework-bg: #004d40; /* Dark Teal */
+  --dm-playground-bg: #166534; /* Dark Green */
+  --dm-learning-camp-bg: linear-gradient(135deg, #b01c0d, #b88213);
+  --dm-nav-bg: rgba(30, 30, 30, 0.8);
+
+  /* Messenger UI Dark Mode Colors */
+  --dm-voice-assistant-bg: #000000;
+  --messenger-user-bubble-dark: #248cff;
+  --messenger-buddy-bubble-dark: #3a3b3c;
+  --messenger-input-bg-dark: #242526;
+  --messenger-header-dark: #18191a;
+  --messenger-border-dark: #3a3b3c;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family-body);
+  color: var(--text-dark);
+  transition: background-image 0.5s ease;
+  overscroll-behavior-y: contain;
+}
+
+body.lang-bn {
+    font-family: 'Poppins', sans-serif; /* Poppins has decent Bangla support */
+}
+body.lang-bn h1, body.lang-bn h2, body.lang-bn h3 {
+    font-family: 'Fredoka', 'Poppins', sans-serif;
+}
+
+#root {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+/* On larger screens, allow the app to take more width for the playground view */
+@media (min-width: 768px) {
+  #root {
+    max-width: 100%;
+  }
+}
+
+/* --- Screen Backgrounds & Layouts --- */
+body.welcome-bg, body.about-bg, body.terms-bg, body.privacy-bg { background: linear-gradient(135deg, var(--welcome-bg-start), var(--welcome-bg-end)); }
+body.home-bg { background-color: var(--home-bg-light); }
+body.profile-bg { background-color: var(--profile-bg); }
+body.media-bg { background-color: var(--media-bg); }
+body.result-bg { background-color: var(--media-bg); }
+body.voice-assistant-gate-bg { background-color: var(--voice-assistant-bg); }
+body.voice-assistant-bg { background-color: var(--white); }
+body.playground-gate-bg { background-color: var(--playground-bg); }
+body.playground-live-bg { background-color: #000; }
+body.quiz-bg { background-color: var(--quiz-bg); }
+body.quizSummary-bg { background-color: var(--quiz-bg); }
+body:not([style*="background-image"]).story-bg { background: var(--story-bg); }
+body.rewards-bg { background: var(--rewards-bg-gradient); }
+body.homework-bg { background-color: var(--homework-bg); }
+body.homework-solver-bg { background-color: var(--homework-bg); }
+body.treasure-hunt-gate-bg { background-color: var(--treasure-hunt-bg); }
+body.treasure-hunt-active-bg { background-color: var(--treasure-hunt-bg); }
+body.learning-camp-gate-bg, body.learning-camp-view-bg { background: var(--learning-camp-bg); }
+
+
+/* --- General Components --- */
+.btn { background-color: var(--action-cyan); color: var(--white); border: none; border-radius: 50px; padding: 1rem 2.5rem; font-family: var(--font-family-body); font-size: 1.25rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 0 var(--action-cyan-dark); transition: all 0.2s ease; text-decoration: none; display: inline-block; }
+.btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 var(--action-cyan-dark); }
+.btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--action-cyan-dark); }
+
+.btn.btn-start {
+    background-color: var(--action-cyan);
+    box-shadow: 0 4px 0 var(--action-cyan-dark);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 3rem;
+    font-size: 1.4rem;
+}
+.btn.btn-start:hover {
+    box-shadow: 0 6px 0 var(--action-cyan-dark);
+}
+.btn.btn-start:active {
+    box-shadow: 0 2px 0 var(--action-cyan-dark);
+}
+
+.btn-secondary { background-color: var(--light-gray); color: var(--text-dark); box-shadow: 0 4px 0 #BDBDBD; }
+.btn-secondary:hover { box-shadow: 0 6px 0 #BDBDBD; }
+.btn-secondary:active { box-shadow: 0 2px 0 #BDBDBD; }
+
+.btn-danger {
+    background-color: var(--red-incorrect);
+    box-shadow: 0 4px 0 #b5151b;
+}
+.btn-danger:hover {
+    background-color: #f02d34;
+    box-shadow: 0 6px 0 #b5151b;
+    transform: translateY(-2px);
+}
+.btn-danger:active {
+    background-color: #ED1C24;
+    box-shadow: 0 2px 0 #b5151b;
+    transform: translateY(2px);
+}
+
+.card { background: var(--white); border-radius: 24px; padding: 2rem; text-align: center; display: flex; flex-direction: column; gap: 1rem; align-items: center; width: 90%; max-width: 100%; position: relative;}
+.feedback-icon { width: 32px; height: 32px; }
+
+.error-message { color: var(--red-incorrect); background-color: var(--white); padding: 1rem; border-radius: 12px; text-align: center; font-weight: 500; margin: 1rem; }
+
+.btn:disabled, .custom-input-group button:disabled {
+    background-color: #ccc;
+    box-shadow: 0 4px 0 #999;
+    cursor: not-allowed;
+    transform: translateY(0);
+}
+
+
+/* --- Dark Mode --- */
+body.dark-mode { color: var(--dm-text-primary); }
+body.dark-mode.home-bg { background-color: var(--dm-bg); }
+body.dark-mode.profile-bg { background-color: var(--dm-bg); }
+body.dark-mode.rewards-bg { background: var(--dm-rewards-bg); }
+body.dark-mode.story-bg { background: var(--dm-story-bg); }
+body.dark-mode.homework-bg, body.dark-mode.homework-solver-bg { background-color: var(--dm-homework-bg); }
+body.dark-mode.playground-gate-bg { background-color: var(--dm-playground-bg); }
+body.dark-mode.learning-camp-gate-bg, body.dark-mode.learning-camp-view-bg { background: var(--dm-learning-camp-bg); }
+body.dark-mode.about-bg, body.dark-mode.terms-bg, body.dark-mode.privacy-bg { background: #1a1a2e; }
+body.dark-mode.voice-assistant-gate-bg { background-color: var(--dm-voice-assistant-bg); }
+body.dark-mode.voice-assistant-bg { background-color: var(--messenger-header-dark); }
+
+body.dark-mode .card {
+    background-color: var(--dm-surface1); 
+}
+
+body.dark-mode .btn-secondary { 
+    background-color: var(--dm-surface2); 
+    color: var(--dm-text-primary); 
+    box-shadow: 0 4px 0 #111; 
+}
+body.dark-mode .btn-secondary:hover { box-shadow: 0 6px 0 #111; }
+body.dark-mode .btn-secondary:active { box-shadow: 0 2px 0 #111; }
+body.dark-mode .error-message { 
+    background-color: var(--dm-surface1); 
+    color: #ff8a80; 
+}
+
+body.dark-mode .btn:disabled, body.dark-mode .custom-input-group button:disabled { 
+    background-color: #444; 
+    box-shadow: 0 4px 0 #222; 
+}
+
+
+@media (min-width: 768px) {
+    .card {
+        width: 70%;
+    }
+}

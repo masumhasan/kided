@@ -1,0 +1,8 @@
+{
+  "name": "kided",
+  "description": "A friendly AI tutor to help kids learn about the world around them.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

@@ -1,0 +1,53 @@
+/* --- Welcome Screen --- */
+.welcome-screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    min-height: 100vh;
+    padding: 2rem;
+    color: var(--white);
+    overflow: hidden;
+    position: relative;
+}
+.welcome-screen::before, .welcome-screen::after {
+    content: '☆';
+    position: absolute;
+    font-size: 5rem;
+    color: rgba(255, 255, 255, 0.1);
+    z-index: 0;
+}
+.welcome-screen::before {
+    top: 5%;
+    left: 5%;
+    transform: rotate(-15deg);
+}
+.welcome-screen::after {
+    bottom: 5%;
+    right: 5%;
+    transform: rotate(15deg);
+}
+.robot-illustration {
+    width: 300px;
+    height: auto;
+    margin-bottom: 1rem;
+}
+.welcome-screen h1 {
+    font-family: var(--font-family-heading);
+    font-size: 3.5rem;
+    margin-bottom: 0.25rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+.tagline {
+    font-size: 1.1rem;
+    font-weight: 400;
+    margin-bottom: 2.5rem;
+    opacity: 0.9;
+}
+.subtitle {
+    margin-top: 1.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+}

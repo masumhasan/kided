@@ -1,0 +1,60 @@
+/* --- Rewards View (Sticker Book) --- */
+.rewards-view { 
+    padding-top: 1rem; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 1.5rem; 
+    color: var(--white); 
+}
+.sticker-book-header { 
+    text-align: center; 
+}
+.sticker-book-header h2 { 
+    font-family: var(--font-family-heading); 
+    font-size: 2rem; 
+}
+.empty-sticker-book {
+    background: rgba(0,0,0,0.2);
+    border-radius: 16px;
+    padding: 2rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    min-height: 300px;
+    border: 2px dashed rgba(255,255,255,0.5);
+}
+.sticker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 1.5rem;
+    padding: 1rem;
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 16px;
+}
+.sticker-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+}
+.sticker-item img {
+    max-width: 100%;
+    height: auto;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.sticker-item:hover img {
+    transform: scale(1.1) rotate(5deg);
+}
+.sticker-item p {
+    font-size: 0.9rem;
+    font-weight: 600;
+    background-color: rgba(0,0,0,0.3);
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+}

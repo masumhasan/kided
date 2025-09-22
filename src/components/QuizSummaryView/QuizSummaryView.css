@@ -1,0 +1,26 @@
+.quiz-results-view { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    min-height: calc(100vh - 160px); 
+    padding: 1rem; 
+}
+
+.quiz-results-view .card { 
+    gap: 1.5rem; 
+}
+.quiz-results-view .card h3 { 
+    color: var(--action-cyan); 
+    font-family: var(--font-family-heading); 
+    font-size: 1.8rem; 
+}
+.quiz-results-view .card p { 
+    font-size: 1.2rem; 
+}
+.quiz-results-view .action-buttons { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 1rem; 
+    width: 100%; 
+    margin-top: 1rem; 
+}

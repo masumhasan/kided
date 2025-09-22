@@ -1,0 +1,30 @@
+.playground-live-view {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+}
+.playground-live-view video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.playground-narration-overlay {
+    position: absolute;
+    bottom: 2rem;
+    left: 1rem;
+    right: 1rem;
+    background: rgba(0,0,0,0.6);
+    color: var(--white);
+    padding: 1rem 1.5rem;
+    border-radius: 16px;
+    font-size: 1.2rem;
+    text-align: center;
+    font-weight: 500;
+    backdrop-filter: blur(5px);
+    min-height: 4.5em; /* Reserve space */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.2);
+}

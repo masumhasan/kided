@@ -1,0 +1,143 @@
+.homework-solver-view { 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 160px);
+    padding: 1rem;
+}
+.homework-solver-view .card { 
+    gap: 1.5rem; 
+}
+.homework-input-area { 
+    width: 100%; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 1rem; 
+}
+.homework-input-area textarea { 
+    width: 100%; 
+    min-height: 120px; 
+    padding: 1rem; 
+    border-radius: 12px; 
+    border: 2px solid var(--light-gray); 
+    font-size: 1.1rem; 
+    font-family: var(--font-family-body); 
+    resize: vertical; 
+}
+.homework-input-options { 
+    display: flex; 
+    gap: 1rem; 
+    justify-content: center; 
+}
+.homework-input-options .btn-secondary { 
+    display: flex; 
+    align-items: center; 
+    gap: 0.5rem; 
+    padding: 0.75rem 1.5rem; 
+    font-size: 1rem; 
+}
+.homework-input-options input[type="file"] { 
+    display: none; 
+}
+
+.homework-solution-area {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+.homework-solution-area h3 { 
+    font-family: var(--font-family-heading); 
+    font-size: 1.4rem; 
+    margin-bottom: -1rem; /* Adjust spacing */
+}
+.homework-chat-container {
+    width: 100%;
+    background-color: var(--light-gray);
+    border-radius: 16px;
+    padding: 1rem;
+    text-align: left;
+    max-height: 40vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.hw-chat-bubble-wrapper { 
+    display: flex; 
+    max-width: 85%; 
+}
+.hw-chat-bubble-wrapper.user { align-self: flex-end; }
+.hw-chat-bubble-wrapper.buddy { align-self: flex-start; }
+.hw-chat-bubble {
+    padding: 0.75rem 1rem;
+    border-radius: 18px;
+    line-height: 1.5;
+    font-size: 1rem;
+}
+.hw-chat-bubble strong { font-weight: 700; }
+.hw-chat-bubble em { font-style: italic; }
+.hw-chat-bubble-wrapper.user .hw-chat-bubble {
+    background-color: var(--messenger-user-bubble-light);
+    color: var(--white);
+    border-bottom-right-radius: 4px;
+}
+.hw-chat-bubble-wrapper.buddy .hw-chat-bubble {
+    background-color: var(--white);
+    color: var(--text-dark);
+    border-bottom-left-radius: 4px;
+}
+.typing-indicator span {
+    height: 8px; width: 8px; background-color: #9ca3af; border-radius: 50%; display: inline-block;
+    animation: typing-fade 1.5s infinite;
+    margin: 0 1px;
+}
+.typing-indicator span:nth-child(1) { animation-delay: 0s; }
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing-fade { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+.followup-input-area {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    width: 100%;
+}
+.followup-input {
+    flex-grow: 1;
+    background: var(--light-gray);
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 0.65rem 1rem;
+    font-size: 1rem;
+    font-family: var(--font-family-body);
+}
+.followup-input:focus { outline: 2px solid var(--action-cyan); }
+.btn-send-followup {
+    background: var(--action-cyan); border: none; color: var(--white);
+    width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background-color 0.2s; flex-shrink: 0;
+    border-radius: 50%;
+}
+.btn-send-followup:disabled { background-color: #ccc; }
+
+body.dark-mode .homework-input-area textarea { 
+    background-color: var(--dm-surface2); 
+    border-color: #444; 
+    color: var(--dm-text-primary); 
+}
+body.dark-mode .homework-chat-container { 
+    background-color: var(--dm-surface2); 
+}
+body.dark-mode .hw-chat-bubble-wrapper.user .hw-chat-bubble {
+    background-color: var(--messenger-user-bubble-dark);
+}
+body.dark-mode .hw-chat-bubble-wrapper.buddy .hw-chat-bubble {
+    background-color: var(--messenger-buddy-bubble-dark);
+    color: var(--dm-text-primary);
+}
+body.dark-mode .followup-input {
+    background-color: var(--dm-surface2);
+    border-color: #444;
+    color: var(--dm-text-primary);
+}

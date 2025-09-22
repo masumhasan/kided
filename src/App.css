@@ -1,0 +1,19 @@
+.app-layout {
+  position: relative;
+}
+main {
+  padding: 80px 1rem 100px 1rem;
+  min-height: 100vh;
+}
+
+.app-layout.screen-voice-assistant main {
+    padding: 0;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.app-layout.screen-playground-live main {
+    padding: 60px 0 0 0;
+    height: 100vh;
+    overflow: hidden;
+}

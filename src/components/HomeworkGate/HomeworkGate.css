@@ -1,0 +1,56 @@
+/* --- Homework Feature --- */
+.homework-gate-view { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    min-height: calc(100vh - 160px); 
+    padding: 1rem; 
+}
+.homework-gate-view .card h2 { 
+    color: var(--white); 
+}
+.homework-gate-view .card p { 
+    color: rgba(255,255,255,0.8); 
+    margin-bottom: 0rem;
+}
+.homework-gate-view .card { 
+    background: transparent; 
+    box-shadow: none; 
+}
+.homework-modes-grid { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 1rem; 
+    width: 100%; 
+}
+.homework-mode-card { 
+    background-color: var(--white); 
+    border-radius: 16px; 
+    padding: 1.5rem 1rem; 
+    text-align: center; 
+    cursor: pointer; 
+    transition: transform 0.2s, box-shadow 0.2s; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 0.75rem; 
+}
+.homework-mode-card:hover { 
+    transform: translateY(-5px); 
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1); 
+}
+.homework-mode-card svg { 
+    width: 40px; 
+    height: 40px; 
+    color: var(--homework-bg); 
+}
+.homework-mode-card h3 { 
+    font-family: var(--font-family-body); 
+    font-size: 1.1rem; 
+    font-weight: 600; 
+    margin: 0; 
+}
+
+body.dark-mode .homework-mode-card { background-color: var(--dm-surface1); }
+body.dark-mode .homework-mode-card svg { color: var(--action-cyan); }
+body.dark-mode .homework-mode-card h3 { color: var(--dm-text-primary); }

@@ -1,0 +1,62 @@
+/* --- Header --- */
+.app-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    height: 60px;
+    z-index: 10;
+    background: var(--white);
+    color: var(--text-dark);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.app-header h2 {
+    font-family: var(--font-family-heading);
+    font-size: 1.5rem;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.header-controls {
+    position: absolute;
+    right: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.back-button {
+    position: absolute;
+    left: 1rem;
+    background: none;
+    border: none;
+    color: var(--text-dark);
+    cursor: pointer;
+    padding: 0.5rem;
+}
+.theme-toggle, .language-toggle {
+    background: none;
+    border: none;
+    color: var(--text-dark);
+    cursor: pointer;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+.back-button svg { width: 28px; height: 28px; }
+
+body.dark-mode .app-header {
+  background-color: var(--dm-surface1);
+  color: var(--dm-text-primary);
+}
+body.dark-mode .app-header .theme-toggle,
+body.dark-mode .app-header .language-toggle,
+body.dark-mode .back-button {
+    color: var(--dm-text-primary);
+}

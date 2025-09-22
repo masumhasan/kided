@@ -1,0 +1,109 @@
+/* --- Profile View --- */
+.profile-view {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 160px);
+}
+.profile-view ul {
+    list-style: none;
+    text-align: left;
+    width: 100%;
+    padding-left: 1rem;
+}
+.profile-view li {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+.profile-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+}
+.profile-form-group label {
+    font-weight: 600;
+    font-size: 1rem;
+    text-align: left;
+    color: var(--text-dark);
+}
+.profile-form-group input {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 2px solid var(--light-gray);
+    font-size: 1.1rem;
+    font-family: var(--font-family-body);
+}
+.family-members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    margin-top: 1rem;
+}
+.family-member-item {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    background-color: var(--light-gray);
+    padding: 0.75rem;
+    border-radius: 12px;
+}
+.family-member-item input {
+    flex-grow: 1;
+    border: 1px solid #ccc;
+    padding: 0.5rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: var(--white);
+}
+.remove-family-btn {
+    background: none;
+    border: none;
+    color: var(--red-incorrect);
+    cursor: pointer;
+    padding: 0.5rem;
+    flex-shrink: 0;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.danger-zone {
+    width: 100%;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 2px dashed var(--red-incorrect);
+    text-align: center;
+}
+.danger-zone h3 {
+    color: var(--red-incorrect);
+    font-family: var(--font-family-heading);
+    margin-bottom: 0.5rem;
+}
+.danger-zone p {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+body.dark-mode .profile-form-group label { color: var(--dm-text-primary); }
+body.dark-mode .profile-form-group input {
+    background-color: var(--dm-surface2);
+    border-color: #444;
+    color: var(--dm-text-primary);
+}
+body.dark-mode .family-member-item {
+    background-color: var(--dm-surface2);
+}
+body.dark-mode .family-member-item input {
+    background-color: var(--dm-bg);
+    border-color: #555;
+    color: var(--dm-text-primary);
+}
+body.dark-mode .danger-zone p {
+    color: var(--dm-text-secondary);
+}

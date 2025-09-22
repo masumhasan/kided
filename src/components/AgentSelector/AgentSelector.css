@@ -1,0 +1,54 @@
+.agent-selector {
+    width: 100%;
+    margin-top: 1.5rem;
+}
+.agent-selector h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 1rem;
+    color: var(--white);
+    opacity: 0.9;
+}
+.agent-options {
+    display: flex;
+    justify-content: space-between;
+    gap: 0;
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 50px;
+    padding: 4px;
+    overflow: hidden;
+}
+.agent-option {
+    flex: 1;
+    cursor: pointer;
+    padding: 0.75rem 0.5rem;
+    border-radius: 50px;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+.agent-option.selected {
+    background-color: var(--white);
+}
+.agent-option span {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--white);
+    transition: color 0.2s ease;
+}
+.agent-option.selected span {
+    color: var(--text-dark);
+}
+
+body.dark-mode .agent-options {
+    background-color: rgba(255,255,255,0.1);
+}
+body.dark-mode .agent-option.selected {
+    background-color: var(--action-cyan);
+}
+body.dark-mode .agent-option span {
+    color: var(--dm-text-primary);
+}
+body.dark-mode .agent-option.selected span {
+    color: var(--white);
+}

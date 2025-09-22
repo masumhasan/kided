@@ -1,0 +1,90 @@
+/* --- Media View (Live Camera) --- */
+.camera-view { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: flex-start; 
+    gap: 1.5rem; 
+    padding-top: 1rem; 
+}
+.camera-container { 
+    position: relative; 
+    width: 100%; 
+    max-width: 400px; 
+    aspect-ratio: 1 / 1; 
+    background-color: rgba(0,0,0, 0.2); 
+    border-radius: 24px; 
+    overflow: hidden; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    border: 4px solid rgba(255, 255, 255, 0.5); 
+}
+.camera-container video { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+}
+.camera-overlay { 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center; 
+}
+.camera-overlay p { 
+    margin-top: 1rem; 
+    color: var(--white); 
+    background-color: rgba(0,0,0,0.4); 
+    padding: 0.25rem 0.75rem; 
+    border-radius: 20px; 
+    font-weight: 500;
+}
+.scan-frame { 
+    width: 70%; 
+    height: 70%; 
+    border: 4px dashed rgba(255,255,255,0.8); 
+    border-radius: 16px; 
+    animation: scan-pulse 2s infinite ease-in-out; 
+}
+@keyframes scan-pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+.controls-container {
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+}
+.capture-btn {
+    background-color: var(--action-cyan);
+    color: var(--white);
+    border: none;
+    border-radius: 50px;
+    padding: 1rem 2.5rem;
+    font-family: var(--font-family-body);
+    font-size: 1.25rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 0 var(--action-cyan-dark);
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 100%;
+}
+.capture-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 var(--action-cyan-dark);
+}
+.capture-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 var(--action-cyan-dark);
+}
+.capture-btn svg {
+    width: 28px;
+    height: 28px;
+}
