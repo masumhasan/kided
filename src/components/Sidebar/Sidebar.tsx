@@ -93,8 +93,8 @@ export const Sidebar = ({ isOpen, onClose, onNavigate, onFeatureNav, isAuthentic
                             <span>{t('sidebar.profile')}</span>
                         </a>
                         <a onClick={() => handleStaticNavClick('about')}>{t('sidebar.about')}</a>
-                        <a href="/terms/" target="_blank" rel="noopener noreferrer">{t('sidebar.terms')}</a>
-                        <a href="/privacy/" target="_blank" rel="noopener noreferrer">{t('sidebar.privacy')}</a>
+                        <a href="terms/" target="_blank" rel="noopener noreferrer">{t('sidebar.terms')}</a>
+                        <a href="privacy/" target="_blank" rel="noopener noreferrer">{t('sidebar.privacy')}</a>
                          {isAuthenticated ? (
                             <a onClick={handleSignOutClick} className="sidebar-feature-item">
                                 <span>{t('sidebar.signOut')}</span>

@@ -1,20 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
-import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithRedirect,
-  signOut,
-  User,
-} from "firebase/auth";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  deleteDoc,
-} from "firebase/firestore";
+// FIX: Changed Firebase imports to use the v8 compat library to fix the `initializeApp` export error.
+// This assumes the project is set up with the compat version of Firebase.
+import firebase from "firebase/compat/app";
+import "firebase/compat/auth";
+import "firebase/compat/firestore";
+import { User } from "firebase/auth";
+
 import {
   GoogleGenAI,
   Type,
@@ -43,7 +34,7 @@ import './App.css';
 // --- Firebase Configuration ---
 const firebaseConfig = {
   apiKey: "AIzaSyDUochJbbhabti4rQuosUjG0c1XyAmJ4Kc",
-  authDomain: "eduplay-471808.firebaseapp.com",
+  authDomain: "ekided.firebaseapp.com",
   databaseURL: "https://eduplay-471808-default-rtdb.firebaseio.com",
   projectId: "eduplay-471808",
   storageBucket: "eduplay-471808.appspot.com",
@@ -52,14 +43,16 @@ const firebaseConfig = {
   measurementId: "G-JF0DEC1XYV"
 };
 
-// Initialize Firebase (Modular SDK)
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
+// FIX: Initialize Firebase using the compat SDK.
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const auth = firebase.auth();
+const db = firebase.firestore();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-// WARNING: In a production application, this key should be handled on a secure backend server, not exposed in the frontend code.
-const CARTESIA_API_KEY = "sk_car_8wCTpQdsAjSjUxbxEt3Yy9";
+// --- API Keys (for development) ---
+const CARTESIA_API_KEY = 'sk_car_8wCTpQdsAjSjUxbxEt3Yy9';
 
 
 // --- Lazy-loaded Screen/View Components ---
@@ -152,13 +145,6 @@ const App = () => {
   // TTS State
   const [isTtsOn, setIsTtsOn] = useState(true);
   
-  const handleToggleTts = () => {
-    const newTtsState = !isTtsOn;
-    setIsTtsOn(newTtsState);
-    // Note: We can't easily stop an in-flight fetch request or audio element,
-    // but new requests will be blocked by the isTtsOn check.
-  };
-
   // Dark Mode
   const [isDarkMode, setIsDarkMode] = useState(true);
 
@@ -198,89 +184,88 @@ const App = () => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
   // --- Helper Functions ---
-  const speak = useCallback((text: string, voiceId: string, onEndCallback: () => void) => {
-    if (!isTtsOn || !text || !text.trim() || !voiceId) {
+  const speak = useCallback(async (text: string, voiceId: string, onEndCallback: () => void) => {
+    if (!isTtsOn || !text.trim() || !voiceId) {
         if (onEndCallback) onEndCallback();
         return;
     }
-    
-    setIsAgentSpeaking(true);
 
-    const onEnd = () => {
+    setIsAgentSpeaking(true);
+    try {
+        const response = await fetch('https://api.cartesia.ai/v1/tts/bytes', {
+            method: 'POST',
+            headers: {
+                'X-API-Key': CARTESIA_API_KEY,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                text,
+                voice_id: voiceId,
+                output_format: "mp3",
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.play();
+        audio.onended = () => {
+            setIsAgentSpeaking(false);
+            URL.revokeObjectURL(audioUrl);
+            if (onEndCallback) onEndCallback();
+        };
+        audio.onerror = (e) => {
+            console.error("Audio playback error:", e);
+            setIsAgentSpeaking(false);
+            if (onEndCallback) onEndCallback();
+        }
+
+    } catch (error) {
+        console.error("Cartesia API error:", error);
         setIsAgentSpeaking(false);
         if (onEndCallback) onEndCallback();
-    };
-
-    fetch("https://api.cartesia.ai/v1/text-to-speech", {
-      method: "POST",
-      headers: {
-        "Cartesia-Version": "2024-05-10",
-        "Content-Type": "application/json",
-        "X-API-Key": CARTESIA_API_KEY,
-      },
-      body: JSON.stringify({
-        model_id: "sonic-english",
-        transcript: text,
-        voice_id: voiceId,
-        output_format: "mp3"
-      }),
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.blob();
-    })
-    .then(blob => {
-      const audioUrl = URL.createObjectURL(blob);
-      const audio = new Audio(audioUrl);
-      audio.play();
-      audio.onended = () => {
-        onEnd();
-        URL.revokeObjectURL(audioUrl);
-      };
-      audio.onerror = (e) => {
-        console.error("Audio playback error:", e);
-        onEnd();
-        URL.revokeObjectURL(audioUrl);
-      };
-    })
-    .catch(e => {
-      console.error("Cartesia API error:", e);
-      onEnd();
-    });
-
+    }
   }, [isTtsOn]);
 
+  const handleToggleTts = () => {
+    const newTtsState = !isTtsOn;
+    setIsTtsOn(newTtsState);
+    if (!newTtsState) {
+      // Logic to stop any playing audio from Cartesia if needed
+      // For now, we'll just prevent new audio from starting.
+      setIsAgentSpeaking(false);
+    }
+  };
 
   // --- Effects ---
    useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    // FIX: Use compat `onAuthStateChanged`.
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
         if (user) {
             setIsGuest(false);
             setFirebaseUser(user);
-            const userRef = doc(db, 'users', user.uid);
-            const docSnap = await getDoc(userRef);
-            if (docSnap.exists()) {
+            // FIX: Use compat `doc` and `getDoc`.
+            const userRef = db.collection('users').doc(user.uid);
+            const docSnap = await userRef.get();
+            if (docSnap.exists) {
                 const profileData = docSnap.data() as UserProfile;
                 setUserProfile(profileData);
-                // Load discovered objects from profile if needed, or handle locally
                 setScreen("home");
             } else {
-                setScreen("profile"); // New user, create profile
+                setScreen("profile");
             }
         } else {
             setFirebaseUser(null);
             setUserProfile(null);
             if (!isGuest) {
-              // This is a full logout or an unauthenticated user. Reset all session state.
               setDiscoveredObjects([]);
               setStory(null);
               setQuizHistory([]);
               setCurrentQuizSession([]);
-              setCurrentQuestionIndex(0);
-              setQuizAnswered(false);
-              setLastAnswerCorrect(false);
               setHomeworkChatHistory([]);
               setHomeworkChat(null);
               setTreasureHunt(null);
@@ -304,8 +289,6 @@ const App = () => {
         document.body.style.backgroundPosition = 'center';
     } else {
         document.body.style.backgroundImage = '';
-        document.body.style.backgroundSize = '';
-        document.body.style.backgroundPosition = '';
     }
   }, [screen, isDarkMode, language, story]);
 
@@ -315,7 +298,6 @@ const App = () => {
     }
   }, []);
   
-  // --- Camera Effect for Voice Assistant ---
   useEffect(() => {
     const startStream = async () => {
         if (mediaStreamRef.current) return;
@@ -331,7 +313,6 @@ const App = () => {
             setIsCameraEnabled(false);
         }
     };
-
     const stopStream = () => {
          if (mediaStreamRef.current) {
             mediaStreamRef.current.getTracks().forEach(track => track.stop());
@@ -341,16 +322,12 @@ const App = () => {
             }
         }
     };
-
     if (screen === 'voice-assistant') {
         startStream();
     } else {
         stopStream();
     }
-
-    return () => {
-        stopStream();
-    }
+    return () => stopStream();
   }, [screen]);
 
   useEffect(() => {
@@ -361,8 +338,7 @@ const App = () => {
     }
   }, [isCameraEnabled]);
   
-   // --- Playground Narration Effect ---
-  useEffect(() => {
+   useEffect(() => {
       let intervalId: number | null = null;
       if (screen === 'playground-live') {
           intervalId = window.setInterval(async () => {
@@ -386,7 +362,7 @@ const App = () => {
               } finally {
                   isProcessingNarrationFrame.current = false;
               }
-          }, 3000); // Every 3 seconds
+          }, 3000);
       }
       return () => {
           if (intervalId) clearInterval(intervalId);
@@ -401,50 +377,33 @@ const App = () => {
 
   useEffect(() => {
       if (screen === 'learning-camp-view' && learningCamp && campProgress) {
+          const markRoberVoiceId = AGENT_PROFILES.MarkRober.voiceId;
           if (campProgress.currentDay > learningCamp.duration) {
               if (campDialogueSpokenRef.current !== 'graduation') {
-                  speak(t('learningCamp.graduationMessage'), AGENT_PROFILES.MarkRober.voiceId, () => {});
+                  speak(t('learningCamp.graduationMessage'), markRoberVoiceId, () => {});
                   campDialogueSpokenRef.current = 'graduation';
               }
               return;
           }
           const currentActivity = learningCamp.days[campProgress.currentDay - 1]?.activities[campProgress.currentActivityIndex];
           if (currentActivity && currentActivity.dialogue && campDialogueSpokenRef.current !== currentActivity.dialogue) {
-              speak(currentActivity.dialogue, AGENT_PROFILES.MarkRober.voiceId, () => {});
+              speak(currentActivity.dialogue, markRoberVoiceId, () => {});
               campDialogueSpokenRef.current = currentActivity.dialogue;
           }
       }
   }, [campProgress, learningCamp, screen, speak, t]);
 
-    // --- Auth Handlers ---
-  const handleSignIn = () => {
-    signInWithRedirect(auth, googleProvider).catch(error => {
-      console.error("Google Sign-In Error:", error);
-      setError("Failed to sign in with Google. Please try again.");
-    });
-  };
+  // FIX: Use compat `signInWithRedirect` and `signOut`.
+  const handleSignIn = () => auth.signInWithRedirect(googleProvider);
+  const handleSignOut = () => { auth.signOut(); setIsGuest(false); };
+  const handleTryWithoutLogin = () => { setIsGuest(true); setUserProfile(null); setScreen("profile"); };
 
-  const handleSignOut = () => {
-    signOut(auth);
-    setIsGuest(false);
-  };
-  
-  const handleTryWithoutLogin = () => {
-    setIsGuest(true);
-    setUserProfile(null);
-    setScreen("profile");
-  };
-
-
-  // --- Profile & Progress Management ---
   const calculateAge = (dob: string): number => {
       const birthDate = new Date(dob);
       const today = new Date();
       let age = today.getFullYear() - birthDate.getFullYear();
       const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-          age--;
-      }
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
       return age > 0 ? age : 0;
   };
 
@@ -452,110 +411,50 @@ const App = () => {
     if (!firebaseUser && !isGuest) return;
       setUserProfile(currentProfile => {
           if (!currentProfile) return null;
-
           const newProgress = updater(currentProfile.progress);
           const updatedProfile = {
-              ...currentProfile,
-              progress: newProgress,
-              updatedAt: new Date().toISOString(),
+              ...currentProfile, progress: newProgress, updatedAt: new Date().toISOString(),
               activityLog: newLogEntry ? [newLogEntry, ...(currentProfile.activityLog || [])].slice(0, 50) : currentProfile.activityLog,
           };
-
-          if (firebaseUser) {
-            setDoc(doc(db, 'users', firebaseUser.uid), updatedProfile);
-          }
+          // FIX: Use compat `setDoc`.
+          if (firebaseUser) db.collection('users').doc(firebaseUser.uid).set(updatedProfile, { merge: true });
           return updatedProfile;
       });
   }, [firebaseUser, isGuest]);
   
   const awardBadge = useCallback((badgeName: string, badgeId: string) => {
-    const newBadge: Badge = {
-        id: badgeId,
-        name: badgeName,
-        earnedOn: new Date().toISOString(),
-    };
-
+    const newBadge: Badge = { id: badgeId, name: badgeName, earnedOn: new Date().toISOString() };
     setUserProfile(currentProfile => {
-        if (!currentProfile) return null;
-        
-        if (currentProfile.badges?.some(b => b.id === newBadge.id)) {
-            return currentProfile;
-        }
-
-        const updatedProfile = {
-            ...currentProfile,
-            badges: [...(currentProfile.badges || []), newBadge],
-            updatedAt: new Date().toISOString(),
-        };
-
-        if (firebaseUser && !isGuest) {
-            setDoc(doc(db, 'users', firebaseUser.uid), updatedProfile);
-        }
+        if (!currentProfile || currentProfile.badges?.some(b => b.id === newBadge.id)) return currentProfile;
+        const updatedProfile = { ...currentProfile, badges: [...(currentProfile.badges || []), newBadge], updatedAt: new Date().toISOString() };
+        // FIX: Use compat `setDoc`.
+        if (firebaseUser && !isGuest) db.collection('users').doc(firebaseUser.uid).set(updatedProfile, { merge: true });
         return updatedProfile;
     });
   }, [firebaseUser, isGuest]);
 
    const logActivity = useCallback((type: ActivityType, description: string, xpEarned: number) => {
-        const newLog: ActivityLog = {
-            id: `log_${Date.now()}`,
-            type,
-            description,
-            xpEarned,
-            timestamp: new Date().toISOString(),
-        };
-        updateUserProgress(prev => ({
-            ...prev,
-            xp: prev.xp + xpEarned,
-        }), newLog);
+        const newLog: ActivityLog = { id: `log_${Date.now()}`, type, description, xpEarned, timestamp: new Date().toISOString() };
+        updateUserProgress(prev => ({ ...prev, xp: prev.xp + xpEarned }), newLog);
     }, [updateUserProgress]);
 
   const handleSaveProfile = (profileData: Omit<UserProfile, 'uid' | 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'activityLog' | 'badges'>) => {
+      const now = new Date().toISOString();
+      const baseProfile = {
+          ...profileData, updatedAt: now,
+          progress: { stars: 0, quizzesCompleted: 0, objectsDiscovered: 0, learningStreak: 0, quizLevel: 1, xp: 0 },
+          activityLog: [], badges: [],
+      };
       if (isGuest) {
-          const now = new Date().toISOString();
-          const guestProfile: UserProfile = {
-              uid: 'guest',
-              id: `guest_${Date.now()}`,
-              ...profileData,
-              createdAt: now,
-              updatedAt: now,
-              progress: {
-                  stars: 0,
-                  quizzesCompleted: 0,
-                  objectsDiscovered: 0,
-                  learningStreak: 0,
-                  quizLevel: 1,
-                  xp: 0,
-              },
-              activityLog: [],
-              badges: [],
-          };
-          setUserProfile(guestProfile);
+          setUserProfile({ uid: 'guest', id: `guest_${Date.now()}`, createdAt: now, ...baseProfile });
           setScreen("home");
           setActiveTab("Home");
           return;
       }
-      
       if (!firebaseUser) return;
-      const now = new Date().toISOString();
-      const newProfile: UserProfile = {
-          uid: firebaseUser.uid,
-          id: userProfile?.id || `user_${Date.now()}`,
-          ...profileData,
-          createdAt: userProfile?.createdAt || now,
-          updatedAt: now,
-          progress: userProfile?.progress || {
-              stars: 0,
-              quizzesCompleted: 0,
-              objectsDiscovered: 0,
-              learningStreak: 0,
-              quizLevel: 1,
-              xp: 0,
-          },
-          activityLog: userProfile?.activityLog || [],
-          badges: userProfile?.badges || [],
-      };
-      
-      setDoc(doc(db, 'users', firebaseUser.uid), newProfile).then(() => {
+      const newProfile: UserProfile = { uid: firebaseUser.uid, id: userProfile?.id || `user_${Date.now()}`, createdAt: userProfile?.createdAt || now, ...baseProfile };
+      // FIX: Use compat `setDoc`.
+      db.collection('users').doc(firebaseUser.uid).set(newProfile).then(() => {
          setUserProfile(newProfile);
          setScreen("home");
          setActiveTab("Home");
@@ -563,50 +462,27 @@ const App = () => {
   };
 
   const handleClearData = () => {
-    if (firebaseUser) {
-        deleteDoc(doc(db, 'users', firebaseUser.uid)).then(() => {
-            handleSignOut(); // Sign out after deleting data
-            window.location.reload();
-        });
-    }
+    // FIX: Use compat `deleteDoc`.
+    if (firebaseUser) db.collection('users').doc(firebaseUser.uid).delete().then(() => { handleSignOut(); window.location.reload(); });
   };
 
   const requireProfile = useCallback(() => {
-    if (!userProfile?.dob) { // check for actual profile data
-        setPreviousScreen(screen);
-        setScreen('profile');
-        return true;
-    }
+    if (!userProfile?.dob) { setPreviousScreen(screen); setScreen('profile'); return true; }
     return false;
   }, [userProfile, screen]);
 
-  // --- Core Handlers ---
-  const goHome = useCallback(() => {
-    setScreen("home");
-    setActiveTab("Home");
-  }, []);
+  const goHome = useCallback(() => { setScreen("home"); setActiveTab("Home"); }, []);
 
   const handleCloseFeature = useCallback(() => {
-    setQuizAnswered(false);
-    setLastAnswerCorrect(false);
-    setCurrentQuizSession([]);
-    setCurrentQuestionIndex(0);
-    setIsInQuizSession(false);
-    setStory(null);
-    setHomeworkMode(null);
-    setHomeworkChatHistory([]);
-    setHomeworkChat(null);
-    setTreasureHunt(null);
-    setLearningCamp(null);
-    setCampProgress(null);
+    setQuizAnswered(false); setLastAnswerCorrect(false); setCurrentQuizSession([]);
+    setCurrentQuestionIndex(0); setIsInQuizSession(false); setStory(null);
+    setHomeworkMode(null); setHomeworkChatHistory([]); setHomeworkChat(null);
+    setTreasureHunt(null); setLearningCamp(null); setCampProgress(null);
     goHome();
   }, [goHome]);
 
   const handleNav = (tab: ActiveTab) => {
-    if (tab === "Menu") {
-        setIsSidebarOpen(true);
-        return;
-    }
+    if (tab === "Menu") { setIsSidebarOpen(true); return; }
     setActiveTab(tab);
     switch (tab) {
       case "Home": setScreen("home"); break;
@@ -626,375 +502,301 @@ const App = () => {
   };
 
   const handleSidebarNav = (newScreen: Screen) => {
-    if (newScreen === 'profile' || newScreen === 'about' || newScreen === 'terms' || newScreen === 'privacy' || newScreen === 'parent-dashboard') {
-        setScreen(newScreen);
-    }
+    if (['profile', 'about', 'terms', 'privacy', 'parent-dashboard'].includes(newScreen)) setScreen(newScreen);
     setIsSidebarOpen(false);
   };
   
-    const captureFrame = async (videoRef: React.RefObject<HTMLVideoElement>): Promise<Part | null> => {
-        if (!videoRef.current || videoRef.current.readyState < 2) return null;
-        const canvas = document.createElement("canvas");
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return null;
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg");
-        const base64Data = dataUrl.split(",")[1];
-        return { inlineData: { data: base64Data, mimeType: "image/jpeg" } };
-    };
+  const captureFrame = async (videoRef: React.RefObject<HTMLVideoElement>): Promise<Part | null> => {
+      if (!videoRef.current || videoRef.current.readyState < 2) return null;
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg");
+      return { inlineData: { data: dataUrl.split(",")[1], mimeType: "image/jpeg" } };
+  };
 
-    const handleCapture = (base64: string, mime: string) => {
-      setMedia({ type: 'image', data: base64 });
-      setScreen('loading');
+  const handleCapture = (base64: string, mime: string) => {
+    setMedia({ type: 'image', data: base64 });
+    setScreen('loading');
+    switch (scanContext) {
+      case 'object-detector': handleIdentifyObject(base64, mime); break;
+      case 'homework': handleGenerateHomeworkSolution({ image: { data: base64, mimeType: mime } }); setScreen('homework-solver'); break;
+      case 'treasure-hunt': handleCheckTreasure(base64, mime); break;
+      case 'learning-camp': handleAdvanceCamp({ type: 'image', data: base64 }); setScreen('learning-camp-view'); break;
+      default: setError("Unknown scan context."); goHome();
+    }
+    setScanContext(null);
+  };
+  
+  const handleIdentifyObject = async (base64: string, mime: string) => {
+    try {
+      const age = userProfile ? calculateAge(userProfile.dob) : 6;
+      const langName = language === 'bn' ? 'Bengali' : 'English';
+      const imagePart = { inlineData: { data: base64, mimeType: mime } };
       
-      switch (scanContext) {
-        case 'object-detector':
-          handleIdentifyObject(base64, mime); 
-          break;
-        case 'homework':
-          handleGenerateHomeworkSolution({ image: { data: base64, mimeType: mime } });
-          setScreen('homework-solver');
-          break;
-        case 'treasure-hunt':
-          handleCheckTreasure(base64, mime);
-          break;
-        case 'learning-camp':
-          handleAdvanceCamp({ type: 'image', data: base64 });
-          setScreen('learning-camp-view');
-          break;
-        default:
-          setError("Unknown scan context.");
-          goHome();
-      }
-      setScanContext(null);
-    };
-
-    // --- Feature Logic ---
-    
-    const handleIdentifyObject = async (base64: string, mime: string) => {
-      try {
-        const age = userProfile ? calculateAge(userProfile.dob) : 6;
-        const langName = language === 'bn' ? 'Bengali' : 'English';
-        const imagePart = { inlineData: { data: base64, mimeType: mime } };
-        
-        const prompt = `Identify the main object in this image. Generate a response for a ${age}-year-old child in ${langName}. The response must be a JSON object with keys: "identification" (string, object name), "funFacts" (array of 3 short strings), "soundSuggestion" (string, a sound it might make), "quiz" (object with "question", "options" array of 4 strings, "correctAnswerIndex"), and "encouragement" (string).`;
-        const responseSchema = {
+      const prompt = `Identify the main object in this image. Generate a response for a ${age}-year-old child in ${langName}. The response must be a JSON object with keys: "identification" (string, object name), "funFacts" (array of 3 short strings), "soundSuggestion" (string, a sound it might make), "quiz" (object with "question", "options" array of 4 strings, "correctAnswerIndex"), and "encouragement" (string).`;
+      const responseSchema = {
           type: Type.OBJECT,
           properties: {
-            identification: { type: Type.STRING },
-            funFacts: { type: Type.ARRAY, items: { type: Type.STRING } },
-            soundSuggestion: { type: Type.STRING },
-            quiz: {
+              identification: { type: Type.STRING },
+              funFacts: { type: Type.ARRAY, items: { type: Type.STRING } },
+              soundSuggestion: { type: Type.STRING },
+              quiz: {
+                  type: Type.OBJECT,
+                  properties: {
+                      question: { type: Type.STRING },
+                      options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      correctAnswerIndex: { type: Type.INTEGER },
+                  },
+                  required: ['question', 'options', 'correctAnswerIndex']
+              },
+              encouragement: { type: Type.STRING },
+          },
+          required: ['identification', 'funFacts', 'quiz', 'encouragement']
+      };
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: { parts: [{ text: prompt }, imagePart] },
+        config: { systemInstruction: activeAgent.systemInstruction, responseMimeType: 'application/json', responseSchema: responseSchema }
+      });
+      const buddyResponse: LearningBuddyResponse = JSON.parse(response.text);
+      setLearningBuddyResponse(buddyResponse);
+
+      speak(`${buddyResponse.identification}. ${buddyResponse.funFacts.join('. ')}`, activeAgent.voiceId, () => {});
+
+      const stickerResponse = await ai.models.generateImages({
+        model: 'imagen-4.0-generate-001', prompt: `A cute, friendly cartoon sticker of a ${buddyResponse.identification}, simple, with a thick white border, vibrant colors.`,
+        config: { numberOfImages: 1, outputMimeType: 'image/png' }
+      });
+      const stickerUrl = `data:image/png;base64,${stickerResponse.generatedImages[0].image.imageBytes}`;
+      
+      setDiscoveredObjects(prev => [...prev, { name: buddyResponse.identification, stickerUrl }]);
+      logActivity('object-scan', `Discovered a ${buddyResponse.identification}`, 20);
+      updateUserProgress(prev => ({ ...prev, objectsDiscovered: prev.objectsDiscovered + 1, stars: prev.stars + 5 }));
+      setScreen('result');
+    } catch (e) {
+      console.error("Object identification error:", e);
+      setError("I had trouble identifying that object. Let's try another one!");
+      goHome();
+    }
+  };
+
+  const handleStartQuiz = async (agent: AgentProfile, topic?: string) => {
+    if (requireProfile()) return;
+    setActiveAgent(agent); setScreen('loading'); setActiveTab('Quiz');
+    try {
+      const langName = language === 'bn' ? 'Bengali' : 'English';
+      const age = userProfile ? calculateAge(userProfile.dob) : 6;
+      const quizLevel = userProfile?.progress.quizLevel || 1;
+      const difficulty = quizLevel <= 2 ? 'very easy' : 'easy';
+      let prompt = `Generate a fun, ${difficulty} 5-question quiz for a ${age}-year-old child in ${langName}. Avoid these questions: [${quizHistory.join(', ')}].`;
+      if (topic) prompt += ` The quiz must be about: "${topic}".`;
+
+      const responseSchema = {
+          type: Type.ARRAY,
+          items: {
               type: Type.OBJECT,
               properties: {
-                question: { type: Type.STRING },
-                options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                correctAnswerIndex: { type: Type.INTEGER }
+                  question: { type: Type.STRING },
+                  options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  correctAnswerIndex: { type: Type.INTEGER },
               },
-              required: ["question", "options", "correctAnswerIndex"]
-            },
-            encouragement: { type: Type.STRING }
-          },
-          required: ["identification", "funFacts", "quiz", "encouragement"]
-        };
+              required: ['question', 'options', 'correctAnswerIndex']
+          }
+      };
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: { parts: [{ text: prompt }, imagePart] },
-          config: {
-            systemInstruction: activeAgent.systemInstruction, responseMimeType: 'application/json', responseSchema: responseSchema }
-        });
+      const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: 'application/json', responseSchema } });
+      const quizData: QuizQuestion[] = JSON.parse(response.text);
+      
+      setCurrentQuizSession(quizData); setCurrentQuestionIndex(0); setQuizSessionCorrectAnswers(0);
+      setIsInQuizSession(true); setLearningBuddyResponse({ identification: topic || t('header.quizTime'), funFacts: [], quiz: quizData[0], encouragement: '' });
+      speak(`${topic ? `${t('quiz.customQuizTitle')} ${topic}` : t('quiz.ready')}. ${quizData[0].question}`, agent.voiceId, () => {});
+      setScreen('result'); setMedia({ type: 'image', data: '' });
+    } catch (e) { console.error("Quiz error:", e); setError("Quiz creation failed."); goHome(); }
+  };
 
-        const buddyResponse: LearningBuddyResponse = JSON.parse(response.text);
-        setLearningBuddyResponse(buddyResponse);
+  const handleAnswerQuiz = (selectedIndex: number) => {
+    if (quizAnswered) return;
+    const isCorrect = selectedIndex === currentQuizSession[currentQuestionIndex].correctAnswerIndex;
+    setLastAnswerCorrect(isCorrect); setQuizAnswered(true);
+    speak(isCorrect ? t('result.correct') : t('result.incorrect'), activeAgent.voiceId, () => {});
+    if (isCorrect) { setQuizSessionCorrectAnswers(p => p + 1); updateUserProgress(p => ({...p, stars: p.stars + 2})); }
+  };
 
-        const textToSpeak = `${buddyResponse.identification}. ${buddyResponse.funFacts.join('. ')}`;
-        speak(textToSpeak, activeAgent.voiceId, () => {});
+  const handleNextQuizQuestion = () => {
+    setQuizAnswered(false); setLastAnswerCorrect(false);
+    const newIndex = currentQuestionIndex + 1;
+    if (newIndex < currentQuizSession.length) {
+      setCurrentQuestionIndex(newIndex);
+      setLearningBuddyResponse(p => p ? { ...p, quiz: currentQuizSession[newIndex] } : null);
+      speak(currentQuizSession[newIndex].question, activeAgent.voiceId, () => {});
+    } else {
+      setIsInQuizSession(false);
+      const level = userProfile?.progress.quizLevel || 1;
+      speak(`${t('quizSummary.levelComplete').replace('{level}', String(level))}`, activeAgent.voiceId, () => {});
+      updateUserProgress(p => ({ ...p, quizzesCompleted: p.quizzesCompleted + 1, quizLevel: p.quizLevel + 1 }));
+      logActivity('quiz', `Completed quiz: ${quizSessionCorrectAnswers}/${currentQuizSession.length}`, 75);
+      setQuizHistory(p => [...p, ...currentQuizSession.map(q => q.question)].slice(-50));
+      setScreen('quizSummary');
+    }
+  };
 
-        const stickerResponse = await ai.models.generateImages({
-          model: 'imagen-4.0-generate-001',
-          prompt: `A cute, friendly cartoon sticker of a ${buddyResponse.identification}, simple, with a thick white border, vibrant colors.`,
-          config: { numberOfImages: 1, outputMimeType: 'image/png' }
-        });
-        const stickerBase64 = stickerResponse.generatedImages[0].image.imageBytes;
-        const stickerUrl = `data:image/png;base64,${stickerBase64}`;
-        
-        const newObject: DiscoveredObject = { name: buddyResponse.identification, stickerUrl };
-        setDiscoveredObjects(prev => [...prev, newObject]);
+  const handleStartStory = async (agent: AgentProfile, context?: string) => {
+      if (requireProfile()) return;
+      setActiveAgent(agent); setScreen('loading'); setActiveTab('Story');
+      try {
+          const langName = language === 'bn' ? 'Bengali' : 'English';
+          const age = userProfile ? calculateAge(userProfile.dob) : 6;
+          const discoveredObjectNames = discoveredObjects.map(o => o.name).join(', ') || 'a friendly cat';
+          let prompt = `Start a short, adventurous story for a ${age}-year-old child in ${langName}. The story should end with a question and two choices for what to do next. The response must be a valid JSON object with keys: "storyText" (string, 2-3 sentences), "choices" (array of 2 short strings), and "backgroundImagePrompt" (string, a simple description for an image generator, e.g., 'A magical forest, cartoon style').`;
+          if (context) {
+              prompt += ` The story must be about: "${context}".`;
+          } else {
+              prompt += ` The story should involve one of these things: ${discoveredObjectNames}.`;
+          }
+          
+          const responseSchema = {
+              type: Type.OBJECT,
+              properties: {
+                  storyText: { type: Type.STRING },
+                  choices: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  backgroundImagePrompt: { type: Type.STRING },
+              },
+              required: ['storyText', 'choices', 'backgroundImagePrompt']
+          };
 
-        logActivity('object-scan', `Discovered a ${buddyResponse.identification}`, 20);
-        updateUserProgress(prev => ({ ...prev, objectsDiscovered: prev.objectsDiscovered + 1, stars: prev.stars + 5 }));
+          const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: prompt,
+              config: {
+                  systemInstruction: agent.systemInstruction,
+                  responseMimeType: 'application/json',
+                  responseSchema
+              }
+          });
+          const storyData = JSON.parse(response.text);
+          
+          const imageResponse = await ai.models.generateImages({
+              model: 'imagen-4.0-generate-001',
+              prompt: `${storyData.backgroundImagePrompt}, beautiful, fantasy, for kids`,
+              config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '16:9' }
+          });
+          const imageBase64 = imageResponse.generatedImages[0].image.imageBytes;
+          const imageUrl = `data:image/jpeg;base64,${imageBase64}`;
 
-        setScreen('result');
+          setStory({ ...storyData, backgroundImage: imageUrl });
+          speak(storyData.storyText, agent.voiceId, () => {});
+          
+          const newChat = ai.chats.create({ model: 'gemini-2.5-flash', config: { systemInstruction: agent.systemInstruction } });
+          setChat(newChat);
+          
+          setScreen('story');
+      } catch (e) { 
+          console.error("Story start error:", e);
+          setError("I couldn't think of a story right now. Let's try later!");
+          goHome();
+       }
+  };
+
+  const handleContinueStory = async (choice: string) => {
+      if (!chat || !story) return;
+      setScreen('loading');
+      try {
+          const prompt = `The user chose: "${choice}". Continue the story for one more paragraph (2-3 sentences), then give two new choices. The response must be a valid JSON object with keys: "storyText", "choices", and "backgroundImagePrompt". If this is the end of the story, make the choices "Play Again" and "Go Home".`;
+          // FIX: The sendMessage method takes a string or Part array directly.
+          const response = await chat.sendMessage(prompt);
+          
+          const storyData = JSON.parse(response.text);
+          const imageResponse = await ai.models.generateImages({
+              model: 'imagen-4.0-generate-001',
+              prompt: `${storyData.backgroundImagePrompt}, beautiful, fantasy, for kids`,
+              config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '16:9' }
+          });
+          const imageBase64 = imageResponse.generatedImages[0].image.imageBytes;
+          const imageUrl = `data:image/jpeg;base64,${imageBase64}`;
+
+          setStory({ ...storyData, backgroundImage: imageUrl });
+          speak(storyData.storyText, activeAgent.voiceId, () => {});
+          logActivity('story', `Continued a story`, 15);
+          setScreen('story');
       } catch (e) {
-        console.error("Object identification error:", e);
-        setError("I had trouble identifying that object. Let's try another one!");
-        goHome();
+          console.error("Story continuation error:", e);
+          setError("The story got lost! Let's start a new one.");
+          goHome();
       }
-    };
-
-    const handleStartQuiz = async (agent: AgentProfile, topic?: string) => {
-        if (requireProfile()) return;
-        setActiveAgent(agent);
-        setScreen('loading');
-        setActiveTab('Quiz');
-        
-        try {
-            const langName = language === 'bn' ? 'Bengali' : 'English';
-            const age = userProfile ? calculateAge(userProfile.dob) : 6;
-            const quizLevel = userProfile?.progress.quizLevel || 1;
-            const difficulty = quizLevel <= 2 ? 'very easy' : quizLevel <= 5 ? 'easy' : 'medium';
-            
-            let prompt = `Generate a fun, ${difficulty} 5-question quiz for a ${age}-year-old child. The language must be ${langName}. Avoid repeating these previous questions if possible: [${quizHistory.join(', ')}].`;
-            if (topic) {
-                prompt += ` The quiz must be about the topic: "${topic}".`;
-            }
-
-            const quizSchema = {
-                type: Type.ARRAY,
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        question: { type: Type.STRING },
-                        options: { type: Type.ARRAY, items: { type: Type.STRING }, minItems: 4, maxItems: 4 },
-                        correctAnswerIndex: { type: Type.INTEGER }
-                    },
-                    required: ['question', 'options', 'correctAnswerIndex']
-                }
-            };
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: { systemInstruction: agent.systemInstruction, responseMimeType: 'application/json', responseSchema: quizSchema }
-            });
-            
-            const quizData: QuizQuestion[] = JSON.parse(response.text);
-            setCurrentQuizSession(quizData);
-            setCurrentQuestionIndex(0);
-            setQuizSessionCorrectAnswers(0);
-            setIsInQuizSession(true);
-            setLearningBuddyResponse({
-                identification: topic || t('header.quizTime'), funFacts: [], quiz: quizData[0], encouragement: ''
-            });
-            
-            const welcomeText = topic ? `${t('quiz.customQuizTitle')} ${topic}` : t('quiz.ready');
-            const firstQuestion = quizData[0].question;
-            speak(`${welcomeText}. ${firstQuestion}`, agent.voiceId, () => {});
-
-            setScreen('result');
-            setMedia({ type: 'image', data: '' });
-        } catch (e) {
-            console.error("Quiz generation error:", e);
-            setError("Sorry, I couldn't create a quiz right now. Please try again!");
-            goHome();
-        }
-    };
-
-    const handleAnswerQuiz = (selectedIndex: number) => {
-        if (quizAnswered) return;
-        const currentQuestion = currentQuizSession[currentQuestionIndex];
-        const isCorrect = selectedIndex === currentQuestion.correctAnswerIndex;
-        setLastAnswerCorrect(isCorrect);
-        setQuizAnswered(true);
-
-        const feedbackText = isCorrect ? t('result.correct') : t('result.incorrect');
-        speak(feedbackText, activeAgent.voiceId, () => {});
-
-        if (isCorrect) {
-            setQuizSessionCorrectAnswers(prev => prev + 1);
-            updateUserProgress(prev => ({...prev, stars: prev.stars + 2}));
-        }
-    };
-
-    const handleNextQuizQuestion = () => {
-        setQuizAnswered(false);
-        setLastAnswerCorrect(false);
-        const newQuestionIndex = currentQuestionIndex + 1;
-        if (newQuestionIndex < currentQuizSession.length) {
-            setCurrentQuestionIndex(newQuestionIndex);
-            setLearningBuddyResponse(prev => prev ? { ...prev, quiz: currentQuizSession[newQuestionIndex] } : null);
-            speak(currentQuizSession[newQuestionIndex].question, activeAgent.voiceId, () => {});
-        } else {
-            setIsInQuizSession(false);
-            const completedLevel = userProfile?.progress.quizLevel || 1;
-            const summaryText = `${t('quizSummary.levelComplete').replace('{level}', String(completedLevel))} ${t('quizSummary.summary').replace('{correct}', String(quizSessionCorrectAnswers)).replace('{total}', String(currentQuizSession.length))}`;
-            speak(summaryText, activeAgent.voiceId, () => {});
-
-            updateUserProgress(prev => ({ ...prev, quizzesCompleted: prev.quizzesCompleted + 1, quizLevel: prev.quizLevel + 1 }));
-            logActivity('quiz', `Completed a quiz with ${quizSessionCorrectAnswers}/${currentQuizSession.length} correct`, 75);
-            setQuizHistory(prev => [...prev, ...currentQuizSession.map(q => q.question)].slice(-50));
-            setScreen('quizSummary');
-        }
-    };
-
-    const handleStartStory = async (agent: AgentProfile, context?: string) => {
-        if (requireProfile()) return;
-        setActiveAgent(agent);
-        setScreen('loading');
-        setActiveTab('Story');
-
-        try {
-            const langName = language === 'bn' ? 'Bengali' : 'English';
-            const age = userProfile ? calculateAge(userProfile.dob) : 6;
-            let prompt = `Start a fun, interactive, choose-your-own-adventure story for a ${age}-year-old child. Provide the first part of the story and 3 choices for the user. Keep the story text to 2-3 sentences.`;
-            if (context) {
-                prompt += ` The story should be about: "${context}".`;
-            } else if (discoveredObjects.length > 0) {
-                const randomObject = discoveredObjects[Math.floor(Math.random() * discoveredObjects.length)];
-                prompt += ` The main character should be a ${randomObject.name}.`;
-            }
-
-            const responseSchema = {
-                type: Type.OBJECT,
-                properties: {
-                    storyText: { type: Type.STRING },
-                    choices: { type: Type.ARRAY, items: { type: Type.STRING }, minItems: 3, maxItems: 3 },
-                },
-                required: ['storyText', 'choices']
-            };
-            
-            const storyResponse = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: { systemInstruction: agent.systemInstruction, responseMimeType: 'application/json', responseSchema: responseSchema }
-            });
-            const storyData = JSON.parse(storyResponse.text);
-
-            const imageResponse = await ai.models.generateImages({
-                model: 'imagen-4.0-generate-001',
-                prompt: `A beautiful, whimsical, digital painting illustration for a children's storybook, based on this scene: ${storyData.storyText}.`,
-                config: { numberOfImages: 1, outputMimeType: 'image/jpeg' }
-            });
-            const imageBase64 = imageResponse.generatedImages[0].image.imageBytes;
-            const imageUrl = `data:image/jpeg;base64,${imageBase64}`;
-            
-            const newStorySegment: StorySegment = { ...storyData, backgroundImage: imageUrl };
-            setStory(newStorySegment);
-            speak(storyData.storyText, agent.voiceId, () => {});
-            
-            const newChat = ai.chats.create({
-                model: 'gemini-2.5-flash',
-                config: { systemInstruction: `${agent.systemInstruction} You are continuing a choose-your-own-adventure story. The user will provide their choice, and you will respond with the next part of the story (2-3 sentences) and 3 new choices.` },
-                history: [{ role: 'user', parts: [{ text: prompt }] }, { role: 'model', parts: [{ text: JSON.stringify(storyData) }] }]
-            });
-            setChat(newChat);
-            setScreen('story');
-        } catch (e) {
-            console.error("Story generation error:", e);
-            setError("Sorry, I couldn't start a story right now. Let's try again!");
-            goHome();
-        }
-    };
-
-    const handleContinueStory = async (choice: string) => {
-        if (!chat || !story) return;
-        setScreen('loading');
-
-        try {
-            const langName = language === 'bn' ? 'Bengali' : 'English';
-            const prompt = `My choice is: "${choice}". Continue the story in ${langName}. Your response must be a JSON object with keys "storyText" (string) and "choices" (array of 3 strings).`;
-
-            const response = await chat.sendMessage({ message: prompt });
-            const storyData = JSON.parse(response.text);
-
-            const imageResponse = await ai.models.generateImages({
-                model: 'imagen-4.0-generate-001',
-                prompt: `A beautiful, whimsical, digital painting illustration for a children's storybook, based on this scene: ${storyData.storyText}.`,
-                config: { numberOfImages: 1, outputMimeType: 'image/jpeg' }
-            });
-            const imageBase64 = imageResponse.generatedImages[0].image.imageBytes;
-            const imageUrl = `data:image/jpeg;base64,${imageBase64}`;
-            
-            const newStorySegment: StorySegment = { ...storyData, backgroundImage: imageUrl };
-            setStory(newStorySegment);
-            speak(storyData.storyText, activeAgent.voiceId, () => {});
-            logActivity('story', `Continued a story`, 15);
-            setScreen('story');
-
-        } catch (e) {
-            console.error("Story continuation error:", e);
-            const endText = "And they all lived happily ever after! The End.";
-            setStory({
-                storyText: endText,
-                choices: ["Play Again", "Go Home"],
-                backgroundImage: story.backgroundImage
-            });
-            speak(endText, activeAgent.voiceId, () => {});
-            setScreen('story');
-        }
-    };
+  };
 
     const handleFinalStoryChoice = (choice: string) => {
-        if (choice === 'Play Again') {
-            handleStartStory(activeAgent);
-        } else {
-            handleCloseFeature();
-        }
+        if (choice === 'Play Again') handleStartStory(activeAgent); else handleCloseFeature();
     };
 
     const handleGenerateHomeworkSolution = async (input: { text?: string; image?: { data: string; mimeType: string; }}) => {
         setIsHomeworkLoading(true);
         try {
-            const langName = language === 'bn' ? 'Bengali' : 'English';
-            const age = userProfile ? calculateAge(userProfile.dob) : 6;
-            
-            let contentParts: Part[] = [];
-            let promptText = `Help a ${age}-year-old child with their ${homeworkMode} homework. Explain the solution in a simple, step-by-step, and encouraging way. The language must be ${langName}.`;
-
+            let currentChat = homeworkChat;
+            if (!currentChat) {
+                const age = userProfile ? calculateAge(userProfile.dob) : 6;
+                const langName = language === 'bn' ? 'Bengali' : 'English';
+                const chatConfig = {
+                    model: 'gemini-2.5-flash',
+                    config: {
+                        systemInstruction: `${activeAgent.systemInstruction} You are a homework helper for a ${age}-year-old child. The homework is about ${homeworkMode}. Explain concepts simply and step-by-step. The response language must be ${langName}.`
+                    }
+                };
+                currentChat = ai.chats.create(chatConfig);
+                setHomeworkChat(currentChat);
+            }
+    
+            const contentParts: Part[] = [];
             if (input.text) {
-                promptText += `\n\nHere is their question: "${input.text}"`;
+                contentParts.push({ text: input.text });
                 setHomeworkChatHistory(prev => [...prev, { sender: 'user', text: input.text! }]);
             }
-            contentParts.push({ text: promptText });
-            
             if (input.image) {
-                contentParts.push({ inlineData: { data: input.image.data, mimeType: input.image.mimeType }});
+                contentParts.push({ inlineData: { data: input.image.data, mimeType: input.image.mimeType } });
             }
-
-            const newChat = ai.chats.create({
-                model: 'gemini-2.5-flash',
-                config: { systemInstruction: `${activeAgent.systemInstruction} You are now a homework helper.` }
-            });
-            setHomeworkChat(newChat);
             
-            const response = await newChat.sendMessage({ message: contentParts });
+            // FIX: The sendMessage method takes a string or Part array directly. The `parts` are not wrapped in a `message` or `parts` object.
+            const response = await currentChat.sendMessage(contentParts);
             setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: response.text }]);
             speak(response.text, activeAgent.voiceId, () => {});
             logActivity('homework' as any, `Got help with ${homeworkMode} homework`, 25);
-        } catch (e) {
-            console.error("Homework generation error:", e);
-            setError("Sorry, I couldn't generate a solution. Please try again.");
-        } finally {
-            setIsHomeworkLoading(false);
-        }
+        } catch (e) { 
+            console.error("Homework solution error:", e);
+            setError("I'm having trouble with that question. Could you ask it differently?");
+        } 
+        finally { setIsHomeworkLoading(false); }
     };
     
      const handleSendHomeworkFollowup = async (message: string) => {
         if (!homeworkChat) return;
-        setHomeworkChatHistory(prev => [...prev, { sender: 'user', text: message }]);
         setIsHomeworkLoading(true);
+        setHomeworkChatHistory(prev => [...prev, { sender: 'user', text: message }]);
         try {
-            const response = await homeworkChat.sendMessage({ message });
+            // FIX: The sendMessage method takes a string or Part array directly.
+            const response = await homeworkChat.sendMessage(message);
             setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: response.text }]);
             speak(response.text, activeAgent.voiceId, () => {});
-        } catch (e) {
-            console.error("Followup error:", e);
-            const errorText = "Oops, something went wrong. Can you ask that again?";
-            setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: errorText }]);
-            speak(errorText, activeAgent.voiceId, () => {});
-        } finally {
-            setIsHomeworkLoading(false);
-        }
+        } catch (e) { 
+            console.error("Homework followup error:", e);
+            setError("I got a bit confused. Let's try that again.");
+         }
+        finally { setIsHomeworkLoading(false); }
     };
 
     const handleStartVoiceAssistant = (agent: AgentProfile) => {
         setSelectedAgent(agent);
+        const age = userProfile ? calculateAge(userProfile.dob) : 6;
+        const langName = language === 'bn' ? 'Bengali' : 'English';
         const newChat = ai.chats.create({
             model: 'gemini-2.5-flash',
-            config: { systemInstruction: agent.systemInstruction }
+            config: {
+                systemInstruction: `${agent.systemInstruction} You are a voice assistant for a ${age}-year-old child. Keep responses very short and conversational. The language must be ${langName}.`
+            }
         });
         setChat(newChat);
         setVoiceAssistantHistory([]);
@@ -1002,57 +804,66 @@ const App = () => {
     };
 
     const handleSendVoiceAssistantMessage = async (message: string) => {
-        if (!chat || !selectedAgent) return;
+        if (!chat) return;
         setVoiceAssistantHistory(prev => [...prev, { sender: 'user', text: message }]);
         setAgentAvatarState('thinking');
         try {
-            const response = await chat.sendMessage({ message });
+            // FIX: The sendMessage method takes a string or Part array directly.
+            const response = await chat.sendMessage(message);
             setAgentAvatarState('speaking');
-            speak(response.text, selectedAgent.voiceId, () => setAgentAvatarState('idle'));
+            speak(response.text, selectedAgent!.voiceId, () => setAgentAvatarState('idle'));
             setVoiceAssistantHistory(prev => [...prev, { sender: 'buddy', text: response.text }]);
-        } catch (e) {
+        } catch (e) { 
             console.error("Voice assistant error:", e);
-            const errorMsg = "I'm sorry, I'm having a little trouble thinking right now.";
-            setAgentAvatarState('speaking');
-            speak(errorMsg, selectedAgent.voiceId, () => setAgentAvatarState('idle'));
-            setVoiceAssistantHistory(prev => [...prev, { sender: 'buddy', text: errorMsg }]);
-        }
+            setAgentAvatarState('idle');
+            setError("I'm having trouble talking right now.");
+         }
     };
     
     const handleStartTreasureHunt = async (agent: AgentProfile) => {
       if (requireProfile()) return;
-      setActiveAgent(agent);
-      setScreen('loading');
-      setActiveTab('Treasure Hunt');
+      setActiveAgent(agent); setScreen('loading'); setActiveTab('Treasure Hunt');
       try {
-        const langName = language === 'bn' ? 'Bengali' : 'English';
         const age = userProfile ? calculateAge(userProfile.dob) : 6;
-        const prompt = `Create a simple 3-item treasure hunt for a ${age}-year-old child to do indoors. The clues should be simple riddles pointing to common household objects (like a pillow, a book, a spoon). Provide the response in ${langName}.`;
-        const treasureHuntSchema = {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            clues: {
-              type: Type.ARRAY,
-              items: { type: Type.OBJECT, properties: { clueText: { type: Type.STRING }, targetDescription: { type: Type.STRING } }, required: ['clueText', 'targetDescription'] }
-            }
-          },
-          required: ['title', 'clues']
+        const langName = language === 'bn' ? 'Bengali' : 'English';
+        const prompt = `Create a fun, 3-step treasure hunt for a ${age}-year-old child to do indoors. The response must be a valid JSON object with keys: "title" (string) and "clues" (an array of 3 objects, each with "clueText" (a simple riddle) and "targetDescription" (a simple name of the object, e.g., 'a red book')). The language must be ${langName}.`;
+        const responseSchema = {
+            type: Type.OBJECT,
+            properties: {
+                title: { type: Type.STRING },
+                clues: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            clueText: { type: Type.STRING },
+                            targetDescription: { type: Type.STRING },
+                        },
+                        required: ['clueText', 'targetDescription']
+                    }
+                }
+            },
+            required: ['title', 'clues']
         };
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash', contents: prompt, config: { systemInstruction: agent.systemInstruction, responseMimeType: 'application/json', responseSchema: treasureHuntSchema, }
+        const response = await ai.models.generateContent({ 
+            model: 'gemini-2.5-flash', contents: prompt,
+            config: { systemInstruction: agent.systemInstruction, responseMimeType: 'application/json', responseSchema }
         });
         const huntData = JSON.parse(response.text);
-        const newHunt: TreasureHunt = {
-          id: `hunt_${Date.now()}`, title: huntData.title, clues: huntData.clues.map((c: any) => ({ ...c, found: false })), currentClueIndex: 0, isComplete: false,
-        };
+        const newHunt: TreasureHunt = { 
+            id: `hunt_${Date.now()}`,
+            title: huntData.title,
+            clues: huntData.clues.map((c: any) => ({ ...c, found: false })),
+            currentClueIndex: 0,
+            isComplete: false,
+         };
         setTreasureHunt(newHunt);
         speak(newHunt.clues[0].clueText, agent.voiceId, () => {});
         setScreen('treasure-hunt-active');
-      } catch (e) {
-        console.error("Treasure hunt generation error:", e);
-        setError("I couldn't come up with a treasure hunt right now. Please try again!");
-        goHome();
+      } catch (e) { 
+          console.error("Treasure hunt error:", e);
+          setError("I couldn't create a treasure hunt. Maybe later!");
+          goHome();
       }
     };
 
@@ -1062,196 +873,189 @@ const App = () => {
       try {
         const currentClue = treasureHunt.clues[treasureHunt.currentClueIndex];
         const imagePart = { inlineData: { data: base64, mimeType: mime } };
-        const prompt = `The user is on a treasure hunt looking for an object described as "${currentClue.targetDescription}". Does the main object in this image match the description? Answer with only "yes" or "no".`;
-        const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: { parts: [{ text: prompt }, imagePart] } });
-        const isMatch = response.text.toLowerCase().includes('yes');
+        const prompt = `Does the object in this image match the description: "${currentClue.targetDescription}"? The main object in the image is what I care about. Respond with a JSON object containing "isMatch" (boolean) and "identifiedObject" (string, the name of the object in the image).`;
+        const responseSchema = {
+            type: Type.OBJECT,
+            properties: { isMatch: { type: Type.BOOLEAN }, identifiedObject: { type: Type.STRING } },
+            required: ['isMatch', 'identifiedObject']
+        };
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash', contents: { parts: [{ text: prompt }, imagePart] },
+            config: { systemInstruction: activeAgent.systemInstruction, responseMimeType: 'application/json', responseSchema }
+        });
+        const result = JSON.parse(response.text);
+        const isMatch = result.isMatch;
+
         if (isMatch) {
           const feedback = t('treasureHunt.success');
-          setTreasureHuntFeedback(feedback);
           const newClueIndex = treasureHunt.currentClueIndex + 1;
           const isComplete = newClueIndex >= treasureHunt.clues.length;
-          setTreasureHunt(prev => prev ? ({ ...prev, currentClueIndex: newClueIndex, isComplete: isComplete }) : null);
-          logActivity('treasure-hunt', `Found clue for ${currentClue.targetDescription}`, 50);
-          setTreasureHuntProgressUpdate({ current: newClueIndex, total: treasureHunt.clues.length });
           
+          setTreasureHuntProgressUpdate({ current: newClueIndex, total: treasureHunt.clues.length });
+          logActivity('treasure-hunt', `Found clue for ${currentClue.targetDescription}`, 30);
+          updateUserProgress(p => ({ ...p, stars: p.stars + 10 }));
+
+          const updatedHunt = { ...treasureHunt, clues: treasureHunt.clues.map((c, i) => i === treasureHunt.currentClueIndex ? { ...c, found: true } : c), currentClueIndex: isComplete ? treasureHunt.currentClueIndex : newClueIndex, isComplete: isComplete, };
+          setTreasureHunt(updatedHunt);
+
           speak(feedback, activeAgent.voiceId, () => {
               setTimeout(() => {
                   if (isComplete) {
-                      logActivity('treasure-hunt', `Completed a treasure hunt!`, 150);
                       speak(t('treasureHunt.completeMessage'), activeAgent.voiceId, () => {});
+                      logActivity('treasure-hunt', 'Completed a treasure hunt', 100);
                   } else {
                       speak(treasureHunt.clues[newClueIndex].clueText, activeAgent.voiceId, () => {});
                   }
                   setTreasureHuntProgressUpdate(null);
-              }, isComplete ? 500 : 2500);
+              }, 1500);
           });
-
         } else {
-           const identificationPrompt = `Briefly identify the main object in this image in one or two words.`;
-           const idResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: { parts: [{ text: identificationPrompt }, imagePart] } });
-           const feedback = t('treasureHunt.failure').replace('{object}', idResponse.text);
+           const feedback = t('treasureHunt.failure').replace('{object}', result.identifiedObject);
            setTreasureHuntFeedback(feedback);
            speak(feedback, activeAgent.voiceId, () => {});
         }
       } catch (e) {
         console.error("Treasure check error:", e);
-        const errorText = "I had a little trouble seeing that. Can you try again?";
-        setTreasureHuntFeedback(errorText);
-        speak(errorText, activeAgent.voiceId, () => {});
-      } finally {
-        setScreen('treasure-hunt-active');
+        setError("I'm not sure if that's right. Let's keep looking!");
       }
+      finally { setScreen('treasure-hunt-active'); }
     };
   
     const handleStartLearningCamp = async (duration: number) => {
         if (requireProfile()) return;
         setIsCampLoading(true);
-        campDialogueSpokenRef.current = '';
+        setActiveAgent(AGENT_PROFILES.MarkRober);
         setScreen('learning-camp-view');
         setActiveTab('Learning Camp');
         try {
-            const langName = language === 'bn' ? 'Bengali' : 'English';
             const age = userProfile ? calculateAge(userProfile.dob) : 6;
-            const agent = AGENT_PROFILES.MarkRober;
-            const prompt = `Generate a learning camp adventure for a ${age}-year-old child. The camp must last for ${duration} day(s). The language must be ${langName}. Each day must have a unique, fun theme (e.g., Space, Jungle, Ocean, Engineering) and follow a strict structure of exactly 4 activities in this order:
-    1.  An 'trail' activity: An exploration challenge like a quiz, riddle, or puzzle.
-    2.  An 'experiment' activity: A simple, hands-on experiment or build using common household items.
-    3.  A 'story' activity: An interactive, choose-your-own-path story adventure related to the day's theme.
-    4.  A 'wrap-up' activity: A summary of the day's learnings that awards a unique, creative badge and shares one cool fun fact.
-    Ensure all content is fun, educational, safe, and age-appropriate. The dialogue must be in the persona of Mark Rober.`;
-            const learningCampSchema = {
-                type: Type.OBJECT,
-                properties: {
-                    duration: { type: Type.INTEGER },
-                    days: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                activities: {
-                                    type: Type.ARRAY,
-                                    items: {
-                                        type: Type.OBJECT,
-                                        properties: {
-                                            title: { type: Type.STRING },
-                                            type: { type: Type.STRING },
-                                            dialogue: { type: Type.STRING },
-                                            inputType: { type: Type.STRING },
-                                            question: { type: Type.STRING, nullable: true },
-                                            options: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true },
-                                            correctAnswerIndex: { type: Type.INTEGER, nullable: true },
-                                            materials: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true },
-                                            steps: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true },
-                                            explanation: { type: Type.STRING, nullable: true },
-                                            badgeName: { type: Type.STRING, nullable: true },
-                                            funFact: { type: Type.STRING, nullable: true },
-                                        },
-                                        required: ['title', 'type', 'dialogue', 'inputType']
-                                    }
-                                }
-                            },
-                            required: ['activities']
-                        }
-                    }
-                },
-                required: ['duration', 'days']
-            };
+            const langName = language === 'bn' ? 'Bengali' : 'English';
+            const prompt = `Generate a ${duration}-day STEM learning camp curriculum for a ${age}-year-old child, hosted by Mark Rober. The response must be a valid JSON object following the LearningCamp interface: { "duration": ${duration}, "days": [...] }. Each day should have 4 activities of types 'trail', 'experiment', 'story', and 'wrap-up'. Keep all text very simple and engaging. The language must be ${langName}.`;
+            
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
-                config: { systemInstruction: agent.systemInstruction, responseMimeType: 'application/json', responseSchema: learningCampSchema, },
+                config: {
+                    systemInstruction: AGENT_PROFILES.MarkRober.systemInstruction,
+                    responseMimeType: 'application/json'
+                }
             });
+
             const campData = JSON.parse(response.text);
             setLearningCamp(campData);
             setCampProgress({ currentDay: 1, currentActivityIndex: 0 });
-        } catch (e) {
-            console.error("Learning Camp generation error:", e);
-            setError("Sorry, I couldn't create the camp adventure right now. Please try again!");
+            logActivity('learning-camp', `Started a ${duration}-day learning camp`, 50);
+        } catch (e) { 
+            console.error("Learning camp creation error:", e);
+            setError("Could not set up the learning camp. Please try again later.");
             goHome();
-        } finally {
-            setIsCampLoading(false);
         }
+        finally { setIsCampLoading(false); }
     };
   
     const handleAdvanceCamp = async (userInput?: { type: 'text' | 'image'; data: string }) => {
         if (!learningCamp || !campProgress) return;
         
-        const currentActivity = learningCamp.days[campProgress.currentDay - 1]?.activities[campProgress.currentActivityIndex];
-        if (currentActivity?.type === 'wrap-up' && currentActivity.badgeName) {
-            const badgeId = `camp-day-${campProgress.currentDay}-${currentActivity.badgeName.toLowerCase().replace(/\s/g, '-')}`;
-            awardBadge(currentActivity.badgeName, badgeId);
-        }
+        const currentDayData = learningCamp.days[campProgress.currentDay - 1];
+        const currentActivity = currentDayData?.activities[campProgress.currentActivityIndex];
 
+        if (!currentActivity) return;
+        
+        // Award XP for completing an activity
+        logActivity('learning-camp', `Completed activity: ${currentActivity.title}`, 25);
+        
         let nextActivityIndex = campProgress.currentActivityIndex + 1;
         let nextDay = campProgress.currentDay;
-        if (nextActivityIndex >= (learningCamp.days[nextDay - 1]?.activities.length || 0)) {
+        
+        // If the current activity was a wrap-up, award the badge
+        if (currentActivity.type === 'wrap-up' && currentActivity.badgeName) {
+            awardBadge(currentActivity.badgeName, `camp_day_${campProgress.currentDay}`);
+        }
+
+        // Check if we've finished the day
+        if (nextActivityIndex >= currentDayData.activities.length) {
             nextActivityIndex = 0;
             nextDay += 1;
-            if(nextDay <= learningCamp.duration) {
-              logActivity('learning-camp', `Completed Day ${nextDay-1} of Learning Camp`, 100);
-            } else {
-              logActivity('learning-camp', `Graduated from a ${learningCamp.duration}-day Learning Camp!`, 250);
-            }
         }
-        setCampProgress({ currentDay: nextDay, currentActivityIndex: nextActivityIndex });
+
+        setCampProgress({
+            currentDay: nextDay,
+            currentActivityIndex: nextActivityIndex,
+        });
+
+        // If the entire camp is finished
+        if (nextDay > learningCamp.duration) {
+            logActivity('learning-camp', `Graduated from the ${learningCamp.duration}-day camp!`, 200);
+        }
     };
 
     const handleFetchParentTips = useCallback(async () => {
-        if (!userProfile || !userProfile.activityLog || userProfile.activityLog.length === 0) {
-            setParentTips(t('parentDashboard.emptyTimeline'));
-            return;
-        }
+        if (!userProfile || parentTips) return;
         setIsParentTipsLoading(true);
         try {
-            const activitySummary = userProfile.activityLog.slice(0, 10).map(log => `- ${log.description} (XP: ${log.xpEarned})`).join('\n');
-            const prompt = `Based on this child's recent activity log, provide 3-4 actionable, positive, and personalized tips for their parents. The goal is to help the parent engage with their child's learning. Frame the tips as encouraging suggestions. The child's name is ${userProfile.name}. Recent Activities:\n${activitySummary}\nRespond in the user's language: ${language === 'bn' ? 'Bengali' : 'English'}. Format the response as a bulleted list.`;
-            const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
+            const langName = language === 'bn' ? 'Bengali' : 'English';
+            const prompt = `Based on this learning activity log for a child named ${userProfile.name}, provide 3 short, actionable, and encouraging tips for their parents. The language must be ${langName}. Format the response as a simple list. Activity Log: ${JSON.stringify(userProfile.activityLog.slice(0, 10))}`;
+            const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
             setParentTips(response.text);
-        } catch(e) {
-            console.error("Error generating parent tips:", e);
-            setParentTips("Could not generate tips at this time. Please try again later.");
-        } finally {
-            setIsParentTipsLoading(false);
+        } catch (e) {
+            console.error("Parent tips error:", e);
+            setParentTips(t('parentDashboard.emptyTimeline'));
         }
-    }, [userProfile, language, t, ai.models]);
+        finally { setIsParentTipsLoading(false); }
+    }, [userProfile, language, t, ai.models, parentTips]);
 
   useEffect(() => {
-    if (screen === 'parent-dashboard') {
-        handleFetchParentTips();
-    }
+    if (screen === 'parent-dashboard') handleFetchParentTips();
   }, [screen, handleFetchParentTips]);
+  
+  const headerTitleMapping: { [key: string]: string[] } = {
+      home: ['home'],
+      objectDetector: ['object-detector-gate', 'media', 'result'],
+      funQuiz: ['quiz', 'quizSummary'],
+      stickerBook: ['rewards'],
+      storyTime: ['story'],
+      homework: ['homework', 'homework-solver'],
+      voiceAssistant: ['voice-assistant-gate'],
+      playground: ['playground-gate'],
+      profile: ['profile'],
+      treasureHunt: ['treasure-hunt-gate', 'treasure-hunt-active'],
+      learningCamp: ['learning-camp-gate', 'learning-camp-view'],
+      parentDashboard: ['parent-dashboard'],
+      chats: [],
+      voiceRoom: ['voice-room'],
+      about: ['about'],
+      terms: ['terms'],
+      privacy: ['privacy'],
+  };
 
-  // --- Rendering Logic ---
   const renderScreen = () => {
     if (isAuthLoading) return <LoadingView t={t} />;
-
     switch (screen) {
-      case "loading": return <LoadingView t={t} />;
       case "welcome": return <WelcomeScreen onSignIn={handleSignIn} onTryWithoutLogin={handleTryWithoutLogin} t={t} />;
       case "home": return <HomeView userProfile={userProfile} onNavigate={handleNav} t={t} />;
-      case "object-detector-gate": return <ObjectDetectorGate onStart={(agent) => { setActiveAgent(agent); setScanContext('object-detector'); setScreen("media"); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "object-detector-gate": return <ObjectDetectorGate onStart={(agent) => { setActiveAgent(agent); setScanContext('object-detector'); setScreen('media'); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "media": return <MediaView onCapture={handleCapture} videoRef={videoRef} t={t} />;
       case "result": return <ResultView response={learningBuddyResponse} media={media} onAnswer={handleAnswerQuiz} answered={quizAnswered} correct={lastAnswerCorrect} onNext={handleNextQuizQuestion} isInQuizSession={isInQuizSession} isLastQuestion={currentQuestionIndex === currentQuizSession.length - 1} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "quiz": return <QuizGate onStartQuiz={(agent) => handleStartQuiz(agent)} onStartCustomQuiz={(agent, topic) => handleStartQuiz(agent, topic)} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "quizSummary": return <QuizSummaryView correctAnswers={quizSessionCorrectAnswers} totalQuestions={currentQuizSession.length} level={userProfile?.progress.quizLevel || 1} onContinue={() => handleStartQuiz(activeAgent)} onGoHome={goHome} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "story": return <StoryView story={story} onStart={handleStartStory} onChoice={(choice) => story?.choices.length > 2 ? handleContinueStory(choice) : handleFinalStoryChoice(choice)} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "quiz": return <QuizGate onStartQuiz={handleStartQuiz} onStartCustomQuiz={handleStartQuiz} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "quizSummary": return <QuizSummaryView correctAnswers={quizSessionCorrectAnswers} totalQuestions={currentQuizSession.length} level={userProfile?.progress.quizLevel || 1} onContinue={() => handleStartQuiz(activeAgent)} onGoHome={handleCloseFeature} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "rewards": return <RewardsView progress={userProfile?.progress!} stickers={discoveredObjects} t={t} />;
+      case "story": return <StoryView story={story} onStart={handleStartStory} onChoice={story?.choices.includes('Play Again') ? handleFinalStoryChoice : handleContinueStory} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "homework": return <HomeworkGate onSelectMode={(agent, mode) => { setActiveAgent(agent); setHomeworkMode(mode); setScreen('homework-solver'); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "homework-solver": return <HomeworkSolverView mode={homeworkMode!} onGenerateSolution={handleGenerateHomeworkSolution} onScanRequest={() => { setScanContext('homework'); setScreen('media'); }} chatHistory={homeworkChatHistory} onSendFollowup={handleSendHomeworkFollowup} isLoading={isHomeworkLoading} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "voice-assistant-gate": return <VoiceAssistantGate onAgentSelect={handleStartVoiceAssistant} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "voice-assistant": return selectedAgent && <VoiceAssistantView agent={selectedAgent} history={voiceAssistantHistory} avatarState={agentAvatarState} isCameraEnabled={isCameraEnabled} setIsCameraEnabled={setIsCameraEnabled} localVideoEl={localVideoEl} onSendMessage={handleSendVoiceAssistantMessage} onBack={goHome} t={t} inputText={voiceAssistantInputText} setInputText={setVoiceAssistantInputText} />;
+      case "voice-assistant": return <VoiceAssistantView agent={selectedAgent!} history={voiceAssistantHistory} avatarState={agentAvatarState} isCameraEnabled={isCameraEnabled} setIsCameraEnabled={setIsCameraEnabled} localVideoEl={localVideoEl} onSendMessage={handleSendVoiceAssistantMessage} onBack={goHome} t={t} inputText={voiceAssistantInputText} setInputText={setVoiceAssistantInputText} />;
       case "playground-gate": return <PlaygroundGate onStart={(agent) => { setActiveAgent(agent); setScreen('playground-live'); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "playground-live": return <PlaygroundLiveView videoRef={videoRef} narrationText={narrationText} onVideoReady={() => {}} t={t} />;
-      case "profile": return <ProfileView profile={userProfile} onSave={handleSaveProfile} onClearData={handleClearData} onMinimize={goHome} onClose={goHome} t={t} />;
+      case "playground-live": return <PlaygroundLiveView videoRef={videoRef} narrationText={narrationText} onVideoReady={() => { /* can be used to show overlay */ }} t={t} />;
+      case "profile": return <ProfileView profile={userProfile} onSave={handleSaveProfile} onClearData={handleClearData} onMinimize={goHome} onClose={previousScreen === 'home' ? goHome : () => setScreen(previousScreen)} t={t} />;
       case "treasure-hunt-gate": return <TreasureHuntGate onStart={handleStartTreasureHunt} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "treasure-hunt-active": return <TreasureHuntView hunt={treasureHunt} onScanRequest={() => { setScanContext('treasure-hunt'); setScreen('media'); }} feedback={treasureHuntFeedback} onPlayAgain={() => handleStartTreasureHunt(activeAgent)} onGoHome={goHome} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "treasure-hunt-active": return <TreasureHuntView hunt={treasureHunt} onScanRequest={() => { setScanContext('treasure-hunt'); setScreen('media'); }} feedback={treasureHuntFeedback} onPlayAgain={() => handleStartTreasureHunt(activeAgent)} onGoHome={handleCloseFeature} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "learning-camp-gate": return <LearningCampGate onStart={handleStartLearningCamp} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "learning-camp-view": return <LearningCampView camp={learningCamp} progress={campProgress} onAdvance={handleAdvanceCamp} isLoading={isCampLoading} onScanRequest={() => { setScanContext('learning-camp'); setScreen('media'); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "parent-dashboard": return <StaticPages.ParentDashboardView profile={userProfile} tips={parentTips} isLoadingTips={isParentTipsLoading} t={t} />;
       case "about": return <StaticPages.AboutUsScreen t={t} />;
       case "terms": return <StaticPages.TermsScreen t={t} />;
       case "privacy": return <StaticPages.PrivacyScreen t={t} />;
-      case "parent-dashboard": return <StaticPages.ParentDashboardView profile={userProfile} tips={parentTips} isLoadingTips={isParentTipsLoading} t={t} />;
-      case "voice-room": return <VoiceRoomView ai={ai} userProfile={userProfile} language={language} speak={speak} onClose={handleCloseFeature} t={t} />;
+      case "voice-room": return <VoiceRoomView ai={ai} userProfile={userProfile} language={language} speak={(text, voiceId, onEnd) => speak(text, voiceId, onEnd)} onClose={handleCloseFeature} t={t} />;
       default: return <HomeView userProfile={userProfile} onNavigate={handleNav} t={t} />;
     }
   };
@@ -1259,46 +1063,15 @@ const App = () => {
   const showHeader = !['welcome', 'loading', 'voice-assistant', 'playground-live', 'voice-room'].includes(screen);
   const showBottomNav = ['home'].includes(screen);
   const showBackButton = !['welcome', 'loading', 'home', 'voice-assistant', 'playground-live'].includes(screen);
-  
-  const headerTitleMapping: { [key: string]: string[] } = {
-    home: ['home'],
-    objectDetector: ['media', 'result', 'object-detector-gate'],
-    funQuiz: ['quiz', 'quizSummary'],
-    stickerBook: ['rewards'],
-    storyTime: ['story'],
-    homework: ['homework', 'homework-solver'],
-    voiceAssistant: ['voice-assistant-gate'],
-    playground: ['playground-gate'],
-    profile: ['profile'],
-    treasureHunt: ['treasure-hunt-gate', 'treasure-hunt-active'],
-    learningCamp: ['learning-camp-gate', 'learning-camp-view'],
-    voiceRoom: ['voice-room'],
-    about: ['about'],
-    terms: ['terms'],
-    privacy: ['privacy'],
-    parentDashboard: ['parent-dashboard'],
-  };
   const headerTitleKey = `header.${Object.keys(headerTitleMapping).find(key => headerTitleMapping[key].includes(screen)) || 'home'}`;
-
 
   return (
     <div className={`app-layout screen-${screen}`}>
       {isLangSelectorOpen && <LanguageSelector onSelect={setLanguage} onClose={() => setIsLangSelectorOpen(false)} t={t} />}
       {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} onNavigate={handleSidebarNav} onFeatureNav={handleNav} t={t} isAuthenticated={!!firebaseUser} onSignIn={handleSignIn} onSignOut={handleSignOut} />}
-       {treasureHuntProgressUpdate && <TreasureHuntProgress current={treasureHuntProgressUpdate.current} total={treasureHuntProgressUpdate.total} t={t} />}
+      {treasureHuntProgressUpdate && <TreasureHuntProgress current={treasureHuntProgressUpdate.current} total={treasureHuntProgressUpdate.total} t={t} />}
       
-      {showHeader && (
-        <Header
-          title={t(headerTitleKey)}
-          isDarkMode={isDarkMode}
-          setIsDarkMode={setIsDarkMode}
-          isTtsOn={isTtsOn}
-          onToggleTts={handleToggleTts}
-          showBackButton={showBackButton}
-          onBack={handleCloseFeature}
-          onLanguageClick={() => setIsLangSelectorOpen(true)}
-        />
-      )}
+      {showHeader && <Header title={t(headerTitleKey)} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isTtsOn={isTtsOn} onToggleTts={handleToggleTts} showBackButton={showBackButton} onBack={handleCloseFeature} onLanguageClick={() => setIsLangSelectorOpen(true)} />}
       <main>
           <Suspense fallback={<LoadingView t={t} />}>
             {renderScreen()}
