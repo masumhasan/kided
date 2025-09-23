@@ -24,8 +24,8 @@
     "typescript": "~5.8.2",
     "vite": "^6.3.6"
   },
-  "description": "![KidEd Welcome Screen](https://raw.githubusercontent.com/masumhasan/eduplay/refs/heads/main/images/edubot.gif)",
-  "main": "index.js",
+  "description": "KidEd is an educational platform for interactive learning experiences.",
+  "main": "index.html",
   "directories": {
     "lib": "lib"
   },
