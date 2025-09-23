@@ -1,5 +1,4 @@
-// FIX: Changed to a full React import to allow extending the JSX namespace for custom elements.
-import 'react';
+import React from 'react';
 
 declare global {
   namespace JSX {
@@ -9,15 +8,11 @@ declare global {
         background?: string;
         speed?: string;
         loop?: boolean;
-        // FIX: Changed property to camelCase 'autoPlay' to match React prop conventions and JSX usage.
         autoPlay?: boolean;
       };
     }
   }
 }
-
-// FIX: Export a dummy constant to prevent tree-shaking of this module.
-export const __FORCE_MODULE_EVALUATION = true;
 
 // Screens and Navigation
 export type Screen =
@@ -100,7 +95,7 @@ export type FamilyMember = {
     relationship: string;
 };
 
-export type ActivityType = 'quiz' | 'object-scan' | 'story' | 'treasure-hunt' | 'learning-camp';
+export type ActivityType = 'quiz' | 'object-scan' | 'story' | 'treasure-hunt' | 'learning-camp' | 'homework';
 
 export type ActivityLog = {
     id: string;

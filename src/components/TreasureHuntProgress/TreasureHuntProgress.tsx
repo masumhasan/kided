@@ -1,9 +1,8 @@
 import React from 'react';
-import { __FORCE_MODULE_EVALUATION } from '../../lib/types';
 import './TreasureHuntProgress.css';
 
-// This line ensures the import is not tree-shaken, making JSX types available.
-if (false) console.log(__FORCE_MODULE_EVALUATION);
+// FIX: Changed to a side-effect import to load global JSX definitions for custom elements.
+import '../../lib/types';
 
 type TreasureHuntProgressProps = {
     current: number;

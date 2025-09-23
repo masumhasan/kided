@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
 import { initializeApp } from "firebase/app";
 import {
@@ -36,7 +35,6 @@ import { Sidebar } from './components/Sidebar/Sidebar';
 import { LoadingView } from './components/LoadingView/LoadingView';
 import { LanguageSelector } from './components/LanguageSelector/LanguageSelector';
 import { TreasureHuntProgress } from './components/TreasureHuntProgress/TreasureHuntProgress';
-// FIX: Changed lazy import to regular import to fix component resolution and type errors.
 import StaticPages from './components/StaticPages/StaticPages';
 
 
@@ -104,6 +102,7 @@ const App = () => {
   >([]);
   const [story, setStory] = useState<StorySegment | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [scanContext, setScanContext] = useState<'object-detector' | 'homework' | 'treasure-hunt' | 'learning-camp' | null>(null);
 
   // Auth State
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -131,11 +130,9 @@ const App = () => {
   const [homeworkChatHistory, setHomeworkChatHistory] = useState<ChatMessage[]>([]);
   const [homeworkChat, setHomeworkChat] = useState<Chat | null>(null);
   const [isHomeworkLoading, setIsHomeworkLoading] = useState(false);
-  const [isScanningForHomework, setIsScanningForHomework] = useState(false);
   
   // Treasure Hunt State
   const [treasureHunt, setTreasureHunt] = useState<TreasureHunt | null>(null);
-  const [isScanningForTreasure, setIsScanningForTreasure] = useState(false);
   const [treasureHuntFeedback, setTreasureHuntFeedback] = useState<string | null>(null);
   const [treasureHuntProgressUpdate, setTreasureHuntProgressUpdate] = useState<{ current: number; total: number } | null>(null);
   
@@ -143,7 +140,6 @@ const App = () => {
   const [learningCamp, setLearningCamp] = useState<LearningCamp | null>(null);
   const [campProgress, setCampProgress] = useState<CampProgress | null>(null);
   const [isCampLoading, setIsCampLoading] = useState(false);
-  const [isScanningForCamp, setIsScanningForCamp] = useState(false);
 
   // Parent Dashboard State
   const [parentTips, setParentTips] = useState('');
@@ -163,7 +159,7 @@ const App = () => {
   };
 
   // Dark Mode
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // --- Agent State ---
   const [activeAgent, setActiveAgent] = useState<AgentProfile>(AGENT_PROFILES.Adam);
@@ -199,6 +195,30 @@ const App = () => {
   // --- Gemini AI Setup ---
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
+  // --- Helper Functions ---
+  const speak = useCallback((text: string, lang: Language, onEndCallback: () => void) => {
+    if (!isTtsOn || !window.speechSynthesis) {
+        onEndCallback();
+        return;
+    }
+    const onEnd = () => {
+        setIsAgentSpeaking(false);
+        onEndCallback();
+    };
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === 'bn' ? 'bn-IN' : 'en-US';
+    utterance.onstart = () => setIsAgentSpeaking(true);
+    utterance.onend = onEnd;
+    utterance.onerror = (e) => {
+        console.error("Speech synthesis error", e);
+        onEnd();
+    };
+    window.speechSynthesis.speak(utterance);
+  }, [isTtsOn]);
+
+
   // --- Effects ---
    useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -208,7 +228,9 @@ const App = () => {
             const userRef = doc(db, 'users', user.uid);
             const docSnap = await getDoc(userRef);
             if (docSnap.exists()) {
-                setUserProfile(docSnap.data() as UserProfile);
+                const profileData = docSnap.data() as UserProfile;
+                setUserProfile(profileData);
+                // Load discovered objects from profile if needed, or handle locally
                 setScreen("home");
             } else {
                 setScreen("profile"); // New user, create profile
@@ -318,7 +340,7 @@ const App = () => {
       return () => {
           if (intervalId) clearInterval(intervalId);
       };
-  }, [screen, language, userProfile, activeAgent]);
+  }, [screen, language, userProfile, activeAgent, ai.models]);
 
     // --- Auth Handlers ---
   const handleSignIn = () => {
@@ -404,7 +426,6 @@ const App = () => {
         }), newLog);
     }, [updateUserProgress]);
 
-// FIX: Updated signature to Omit uid and activityLog, as they are derived from component state and not passed from ProfileView.
   const handleSaveProfile = (profileData: Omit<UserProfile, 'uid' | 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'activityLog'>) => {
       if (isGuest) {
           setUserProfile(currentProfile => {
@@ -452,149 +473,13 @@ const App = () => {
   };
 
   const requireProfile = useCallback(() => {
-    if (!userProfile) {
+    if (!userProfile?.dob) { // check for actual profile data
         setPreviousScreen(screen);
         setScreen('profile');
         return true;
     }
     return false;
   }, [userProfile, screen]);
-  
-  const handleStartLearningCamp = async (duration: number) => {
-    if (requireProfile()) return;
-    setIsCampLoading(true);
-    setScreen('learning-camp-view');
-    setActiveTab('Learning Camp');
-    try {
-        const langName = language === 'bn' ? 'Bengali' : 'English';
-        const age = userProfile ? calculateAge(userProfile.dob) : 6;
-        const agent = AGENT_PROFILES.MarkRober;
-
-        const prompt = `Generate a learning camp adventure for a ${age}-year-old child. The camp must last for ${duration} day(s). The language must be ${langName}. Each day must have a unique, fun theme (e.g., Space, Jungle, Ocean, Engineering) and follow a strict structure of exactly 4 activities in this order:
-1.  An 'trail' activity: An exploration challenge like a quiz, riddle, or puzzle.
-2.  An 'experiment' activity: A simple, hands-on experiment or build using common household items.
-3.  A 'story' activity: An interactive, choose-your-own-path story adventure related to the day's theme.
-4.  A 'wrap-up' activity: A summary of the day's learnings that awards a unique, creative badge and shares one cool fun fact.
-Ensure all content is fun, educational, safe, and age-appropriate. The dialogue must be in the persona of Mark Rober.`;
-        
-        const learningCampSchema = {
-            type: Type.OBJECT,
-            properties: {
-                duration: { type: Type.INTEGER },
-                days: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            activities: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        title: { type: Type.STRING },
-                                        type: { type: Type.STRING },
-                                        dialogue: { type: Type.STRING },
-                                        inputType: { type: Type.STRING },
-                                        question: { type: Type.STRING, nullable: true },
-                                        options: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true },
-                                        correctAnswerIndex: { type: Type.INTEGER, nullable: true },
-                                        materials: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true },
-                                        steps: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true },
-                                        explanation: { type: Type.STRING, nullable: true },
-                                        badgeName: { type: Type.STRING, nullable: true },
-                                        funFact: { type: Type.STRING, nullable: true },
-                                    },
-                                    required: ['title', 'type', 'dialogue', 'inputType']
-                                }
-                            }
-                        },
-                        required: ['activities']
-                    }
-                }
-            },
-            required: ['duration', 'days']
-        };
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                systemInstruction: agent.systemInstruction,
-                responseMimeType: 'application/json',
-                responseSchema: learningCampSchema,
-            },
-        });
-
-        const campData = JSON.parse(response.text);
-        setLearningCamp(campData);
-        setCampProgress({ currentDay: 1, currentActivityIndex: 0 });
-    } catch (e) {
-        console.error("Learning Camp generation error:", e);
-        setError("Sorry, I couldn't create the camp adventure right now. Please try again!");
-        goHome();
-    } finally {
-        setIsCampLoading(false);
-    }
-  };
-  
-  const handleAdvanceCamp = async (userInput?: { type: 'text' | 'image'; data: string }) => {
-    if (!learningCamp || !campProgress) return;
-
-    let nextActivityIndex = campProgress.currentActivityIndex + 1;
-    let nextDay = campProgress.currentDay;
-
-    if (nextActivityIndex >= (learningCamp.days[nextDay - 1]?.activities.length || 0)) {
-        nextActivityIndex = 0;
-        nextDay += 1;
-        if(nextDay <= learningCamp.duration) {
-          logActivity('learning-camp', `Completed Day ${nextDay-1} of Learning Camp`, 100);
-        } else {
-          logActivity('learning-camp', `Graduated from a ${learningCamp.duration}-day Learning Camp!`, 250);
-        }
-    }
-    
-    setCampProgress({ currentDay: nextDay, currentActivityIndex: nextActivityIndex });
-};
-
-  const handleFetchParentTips = useCallback(async () => {
-    if (!userProfile || !userProfile.activityLog || userProfile.activityLog.length === 0) {
-        setParentTips(t('parentDashboard.emptyTimeline'));
-        return;
-    }
-    setIsParentTipsLoading(true);
-    try {
-        const activitySummary = userProfile.activityLog
-            .slice(0, 10) // Use last 10 activities for brevity
-            .map(log => `- ${log.description} (XP: ${log.xpEarned})`)
-            .join('\n');
-            
-        const prompt = `Based on this child's recent activity log, provide 3-4 actionable, positive, and personalized tips for their parents. The goal is to help the parent engage with their child's learning. Frame the tips as encouraging suggestions. The child's name is ${userProfile.name}.
-
-Recent Activities:
-${activitySummary}
-
-Respond in the user's language: ${language === 'bn' ? 'Bengali' : 'English'}. Format the response as a bulleted list.`;
-        
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-        });
-        
-        setParentTips(response.text);
-
-    } catch(e) {
-        console.error("Error generating parent tips:", e);
-        setParentTips("Could not generate tips at this time. Please try again later.");
-    } finally {
-        setIsParentTipsLoading(false);
-    }
-  }, [userProfile, language, t, ai.models]);
-
-  useEffect(() => {
-    if (screen === 'parent-dashboard') {
-        handleFetchParentTips();
-    }
-  }, [screen, handleFetchParentTips]);
 
   // --- Core Handlers ---
   const goHome = useCallback(() => {
@@ -631,7 +516,7 @@ Respond in the user's language: ${language === 'bn' ? 'Bengali' : 'English'}. Fo
       case "Playground": setScreen("playground-gate"); break;
       case "Treasure Hunt": setScreen("treasure-hunt-gate"); break;
       case "Learning Camp": setScreen("learning-camp-gate"); break;
-      case "Quiz": setScreen(isInQuizSession ? "result" : "quiz"); break;
+      case "Quiz": setScreen("quiz"); break;
       case "Rewards": setScreen("rewards"); break;
       case "Story": setScreen("story"); break;
       case "Homework": setScreen("homework"); break;
@@ -660,6 +545,275 @@ Respond in the user's language: ${language === 'bn' ? 'Bengali' : 'English'}. Fo
         return { inlineData: { data: base64Data, mimeType: "image/jpeg" } };
     };
 
+    const handleCapture = (base64: string, mime: string) => {
+      setMedia({ type: 'image', data: base64 });
+      setScreen('loading');
+      
+      switch (scanContext) {
+        case 'object-detector':
+          handleIdentifyObject(base64, mime); 
+          break;
+        case 'homework':
+          handleGenerateHomeworkSolution({ image: { data: base64, mimeType: mime } });
+          setScreen('homework-solver');
+          break;
+        case 'treasure-hunt':
+          handleCheckTreasure(base64, mime);
+          break;
+        case 'learning-camp':
+          handleAdvanceCamp({ type: 'image', data: base64 });
+          setScreen('learning-camp-view');
+          break;
+        default:
+          setError("Unknown scan context.");
+          goHome();
+      }
+      setScanContext(null);
+    };
+
+    // --- Feature Logic ---
+    
+    const handleIdentifyObject = async (base64: string, mime: string) => {
+      try {
+        const age = userProfile ? calculateAge(userProfile.dob) : 6;
+        const langName = language === 'bn' ? 'Bengali' : 'English';
+        const imagePart = { inlineData: { data: base64, mimeType: mime } };
+        
+        const prompt = `Identify the main object in this image. Generate a response for a ${age}-year-old child in ${langName}. The response must be a JSON object with keys: "identification" (string, object name), "funFacts" (array of 3 short strings), "soundSuggestion" (string, a sound it might make), "quiz" (object with "question", "options" array of 4 strings, "correctAnswerIndex"), and "encouragement" (string).`;
+        const responseSchema = {
+          type: Type.OBJECT,
+          properties: {
+            identification: { type: Type.STRING },
+            funFacts: { type: Type.ARRAY, items: { type: Type.STRING } },
+            soundSuggestion: { type: Type.STRING },
+            quiz: {
+              type: Type.OBJECT,
+              properties: {
+                question: { type: Type.STRING },
+                options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                correctAnswerIndex: { type: Type.INTEGER }
+              },
+              required: ["question", "options", "correctAnswerIndex"]
+            },
+            encouragement: { type: Type.STRING }
+          },
+          required: ["identification", "funFacts", "quiz", "encouragement"]
+        };
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: { parts: [{ text: prompt }, imagePart] },
+          config: {
+            systemInstruction: activeAgent.systemInstruction, responseMimeType: 'application/json', responseSchema: responseSchema }
+        });
+
+        const buddyResponse: LearningBuddyResponse = JSON.parse(response.text);
+        setLearningBuddyResponse(buddyResponse);
+
+        const stickerResponse = await ai.models.generateImages({
+          model: 'imagen-4.0-generate-001',
+          prompt: `A cute, friendly cartoon sticker of a ${buddyResponse.identification}, simple, with a thick white border, vibrant colors.`,
+          config: { numberOfImages: 1, outputMimeType: 'image/png' }
+        });
+        const stickerBase64 = stickerResponse.generatedImages[0].image.imageBytes;
+        const stickerUrl = `data:image/png;base64,${stickerBase64}`;
+        
+        const newObject: DiscoveredObject = { name: buddyResponse.identification, stickerUrl };
+        setDiscoveredObjects(prev => [...prev, newObject]);
+
+        logActivity('object-scan', `Discovered a ${buddyResponse.identification}`, 20);
+        updateUserProgress(prev => ({ ...prev, objectsDiscovered: prev.objectsDiscovered + 1, stars: prev.stars + 5 }));
+
+        setScreen('result');
+      } catch (e) {
+        console.error("Object identification error:", e);
+        setError("I had trouble identifying that object. Let's try another one!");
+        goHome();
+      }
+    };
+
+    const handleStartQuiz = async (agent: AgentProfile, topic?: string) => {
+        if (requireProfile()) return;
+        setActiveAgent(agent);
+        setScreen('loading');
+        setActiveTab('Quiz');
+        
+        try {
+            const langName = language === 'bn' ? 'Bengali' : 'English';
+            const age = userProfile ? calculateAge(userProfile.dob) : 6;
+            const quizLevel = userProfile?.progress.quizLevel || 1;
+            const difficulty = quizLevel <= 2 ? 'very easy' : quizLevel <= 5 ? 'easy' : 'medium';
+            
+            let prompt = `Generate a fun, ${difficulty} 5-question quiz for a ${age}-year-old child. The language must be ${langName}. Avoid repeating these previous questions if possible: [${quizHistory.join(', ')}].`;
+            if (topic) {
+                prompt += ` The quiz must be about the topic: "${topic}".`;
+            }
+
+            const quizSchema = {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        question: { type: Type.STRING },
+                        options: { type: Type.ARRAY, items: { type: Type.STRING }, minItems: 4, maxItems: 4 },
+                        correctAnswerIndex: { type: Type.INTEGER }
+                    },
+                    required: ['question', 'options', 'correctAnswerIndex']
+                }
+            };
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: { systemInstruction: agent.systemInstruction, responseMimeType: 'application/json', responseSchema: quizSchema }
+            });
+            
+            const quizData: QuizQuestion[] = JSON.parse(response.text);
+            setCurrentQuizSession(quizData);
+            setCurrentQuestionIndex(0);
+            setQuizSessionCorrectAnswers(0);
+            setIsInQuizSession(true);
+            setLearningBuddyResponse({
+                identification: topic || t('header.quizTime'), funFacts: [], quiz: quizData[0], encouragement: ''
+            });
+            setScreen('result');
+            setMedia({ type: 'image', data: '' });
+        } catch (e) {
+            console.error("Quiz generation error:", e);
+            setError("Sorry, I couldn't create a quiz right now. Please try again!");
+            goHome();
+        }
+    };
+
+    const handleAnswerQuiz = (selectedIndex: number) => {
+        if (quizAnswered) return;
+        const currentQuestion = currentQuizSession[currentQuestionIndex];
+        const isCorrect = selectedIndex === currentQuestion.correctAnswerIndex;
+        setLastAnswerCorrect(isCorrect);
+        setQuizAnswered(true);
+        if (isCorrect) {
+            setQuizSessionCorrectAnswers(prev => prev + 1);
+            updateUserProgress(prev => ({...prev, stars: prev.stars + 2}));
+        }
+    };
+
+    const handleNextQuizQuestion = () => {
+        setQuizAnswered(false);
+        setLastAnswerCorrect(false);
+        const newQuestionIndex = currentQuestionIndex + 1;
+        if (newQuestionIndex < currentQuizSession.length) {
+            setCurrentQuestionIndex(newQuestionIndex);
+            setLearningBuddyResponse(prev => prev ? { ...prev, quiz: currentQuizSession[newQuestionIndex] } : null);
+        } else {
+            setIsInQuizSession(false);
+            updateUserProgress(prev => ({ ...prev, quizzesCompleted: prev.quizzesCompleted + 1, quizLevel: prev.quizLevel + 1 }));
+            logActivity('quiz', `Completed a quiz with ${quizSessionCorrectAnswers}/${currentQuizSession.length} correct`, 75);
+            setQuizHistory(prev => [...prev, ...currentQuizSession.map(q => q.question)].slice(-50));
+            setScreen('quizSummary');
+        }
+    };
+
+    const handleStartStory = async (agent: AgentProfile, context?: string) => {
+        if (requireProfile()) return;
+        setActiveAgent(agent);
+        setScreen('loading');
+        setActiveTab('Story');
+
+        try {
+            const langName = language === 'bn' ? 'Bengali' : 'English';
+            const age = userProfile ? calculateAge(userProfile.dob) : 6;
+            let prompt = `Start a fun, interactive, choose-your-own-adventure story for a ${age}-year-old child. Provide the first part of the story and 3 choices for the user. Keep the story text to 2-3 sentences.`;
+            if (context) {
+                prompt += ` The story should be about: "${context}".`;
+            } else if (discoveredObjects.length > 0) {
+                const randomObject = discoveredObjects[Math.floor(Math.random() * discoveredObjects.length)];
+                prompt += ` The main character should be a ${randomObject.name}.`;
+            }
+
+            const responseSchema = {
+                type: Type.OBJECT,
+                properties: {
+                    storyText: { type: Type.STRING },
+                    choices: { type: Type.ARRAY, items: { type: Type.STRING }, minItems: 3, maxItems: 3 },
+                },
+                required: ['storyText', 'choices']
+            };
+            
+            const storyResponse = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: { systemInstruction: agent.systemInstruction, responseMimeType: 'application/json', responseSchema: responseSchema }
+            });
+            const storyData = JSON.parse(storyResponse.text);
+
+            const imageResponse = await ai.models.generateImages({
+                model: 'imagen-4.0-generate-001',
+                prompt: `A beautiful, whimsical, digital painting illustration for a children's storybook, based on this scene: ${storyData.storyText}.`,
+                config: { numberOfImages: 1, outputMimeType: 'image/jpeg' }
+            });
+            const imageBase64 = imageResponse.generatedImages[0].image.imageBytes;
+            const imageUrl = `data:image/jpeg;base64,${imageBase64}`;
+            
+            const newStorySegment: StorySegment = { ...storyData, backgroundImage: imageUrl };
+            setStory(newStorySegment);
+            
+            const newChat = ai.chats.create({
+                model: 'gemini-2.5-flash',
+                config: { systemInstruction: `${agent.systemInstruction} You are continuing a choose-your-own-adventure story. The user will provide their choice, and you will respond with the next part of the story (2-3 sentences) and 3 new choices.` },
+                history: [{ role: 'user', parts: [{ text: prompt }] }, { role: 'model', parts: [{ text: JSON.stringify(storyData) }] }]
+            });
+            setChat(newChat);
+            setScreen('story');
+        } catch (e) {
+            console.error("Story generation error:", e);
+            setError("Sorry, I couldn't start a story right now. Let's try again!");
+            goHome();
+        }
+    };
+
+    const handleContinueStory = async (choice: string) => {
+        if (!chat || !story) return;
+        setScreen('loading');
+
+        try {
+            const langName = language === 'bn' ? 'Bengali' : 'English';
+            const prompt = `My choice is: "${choice}". Continue the story in ${langName}. Your response must be a JSON object with keys "storyText" (string) and "choices" (array of 3 strings).`;
+
+            const response = await chat.sendMessage({ message: prompt });
+            const storyData = JSON.parse(response.text);
+
+            const imageResponse = await ai.models.generateImages({
+                model: 'imagen-4.0-generate-001',
+                prompt: `A beautiful, whimsical, digital painting illustration for a children's storybook, based on this scene: ${storyData.storyText}.`,
+                config: { numberOfImages: 1, outputMimeType: 'image/jpeg' }
+            });
+            const imageBase64 = imageResponse.generatedImages[0].image.imageBytes;
+            const imageUrl = `data:image/jpeg;base64,${imageBase64}`;
+            
+            const newStorySegment: StorySegment = { ...storyData, backgroundImage: imageUrl };
+            setStory(newStorySegment);
+            logActivity('story', `Continued a story`, 15);
+            setScreen('story');
+
+        } catch (e) {
+            console.error("Story continuation error:", e);
+            setStory({
+                storyText: "And they all lived happily ever after! The End.",
+                choices: ["Play Again", "Go Home"],
+                backgroundImage: story.backgroundImage
+            });
+            setScreen('story');
+        }
+    };
+
+    const handleFinalStoryChoice = (choice: string) => {
+        if (choice === 'Play Again') {
+            handleStartStory(activeAgent);
+        } else {
+            handleCloseFeature();
+        }
+    };
+
     const handleGenerateHomeworkSolution = async (input: { text?: string; image?: { data: string; mimeType: string; }}) => {
         setIsHomeworkLoading(true);
         try {
@@ -680,16 +834,13 @@ Respond in the user's language: ${language === 'bn' ? 'Bengali' : 'English'}. Fo
 
             const newChat = ai.chats.create({
                 model: 'gemini-2.5-flash',
-                config: {
-                    systemInstruction: `${activeAgent.systemInstruction} You are now a homework helper.`
-                }
+                config: { systemInstruction: `${activeAgent.systemInstruction} You are now a homework helper.` }
             });
             setHomeworkChat(newChat);
             
-            // FIX: The `sendMessage` API expects the parts array directly under the `message` property.
             const response = await newChat.sendMessage({ message: contentParts });
-            
             setHomeworkChatHistory([{ sender: 'buddy', text: response.text }]);
+            logActivity('homework' as any, `Got help with ${homeworkMode} homework`, 25);
         } catch (e) {
             console.error("Homework generation error:", e);
             setError("Sorry, I couldn't generate a solution. Please try again.");
@@ -700,10 +851,8 @@ Respond in the user's language: ${language === 'bn' ? 'Bengali' : 'English'}. Fo
     
      const handleSendHomeworkFollowup = async (message: string) => {
         if (!homeworkChat) return;
-
         setHomeworkChatHistory(prev => [...prev, { sender: 'user', text: message }]);
         setIsHomeworkLoading(true);
-
         try {
             const response = await homeworkChat.sendMessage({ message });
             setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: response.text }]);
@@ -715,6 +864,214 @@ Respond in the user's language: ${language === 'bn' ? 'Bengali' : 'English'}. Fo
         }
     };
 
+    const handleStartVoiceAssistant = (agent: AgentProfile) => {
+        setSelectedAgent(agent);
+        const newChat = ai.chats.create({
+            model: 'gemini-2.5-flash',
+            config: { systemInstruction: agent.systemInstruction }
+        });
+        setChat(newChat);
+        setVoiceAssistantHistory([]);
+        setScreen('voice-assistant');
+    };
+
+    const handleSendVoiceAssistantMessage = async (message: string) => {
+        if (!chat) return;
+        setVoiceAssistantHistory(prev => [...prev, { sender: 'user', text: message }]);
+        setAgentAvatarState('thinking');
+        try {
+            const response = await chat.sendMessage({ message });
+            setAgentAvatarState('speaking');
+            speak(response.text, language, () => setAgentAvatarState('idle'));
+            setVoiceAssistantHistory(prev => [...prev, { sender: 'buddy', text: response.text }]);
+        } catch (e) {
+            console.error("Voice assistant error:", e);
+            const errorMsg = "I'm sorry, I'm having a little trouble thinking right now.";
+            setAgentAvatarState('speaking');
+            speak(errorMsg, language, () => setAgentAvatarState('idle'));
+            setVoiceAssistantHistory(prev => [...prev, { sender: 'buddy', text: errorMsg }]);
+        }
+    };
+    
+    const handleStartTreasureHunt = async (agent: AgentProfile) => {
+      if (requireProfile()) return;
+      setActiveAgent(agent);
+      setScreen('loading');
+      setActiveTab('Treasure Hunt');
+      try {
+        const langName = language === 'bn' ? 'Bengali' : 'English';
+        const age = userProfile ? calculateAge(userProfile.dob) : 6;
+        const prompt = `Create a simple 3-item treasure hunt for a ${age}-year-old child to do indoors. The clues should be simple riddles pointing to common household objects (like a pillow, a book, a spoon). Provide the response in ${langName}.`;
+        const treasureHuntSchema = {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            clues: {
+              type: Type.ARRAY,
+              items: { type: Type.OBJECT, properties: { clueText: { type: Type.STRING }, targetDescription: { type: Type.STRING } }, required: ['clueText', 'targetDescription'] }
+            }
+          },
+          required: ['title', 'clues']
+        };
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash', contents: prompt, config: { systemInstruction: agent.systemInstruction, responseMimeType: 'application/json', responseSchema: treasureHuntSchema, }
+        });
+        const huntData = JSON.parse(response.text);
+        const newHunt: TreasureHunt = {
+          id: `hunt_${Date.now()}`, title: huntData.title, clues: huntData.clues.map((c: any) => ({ ...c, found: false })), currentClueIndex: 0, isComplete: false,
+        };
+        setTreasureHunt(newHunt);
+        setScreen('treasure-hunt-active');
+      } catch (e) {
+        console.error("Treasure hunt generation error:", e);
+        setError("I couldn't come up with a treasure hunt right now. Please try again!");
+        goHome();
+      }
+    };
+
+    const handleCheckTreasure = async (base64: string, mime: string) => {
+      if (!treasureHunt) return;
+      setScreen('loading');
+      try {
+        const currentClue = treasureHunt.clues[treasureHunt.currentClueIndex];
+        const imagePart = { inlineData: { data: base64, mimeType: mime } };
+        const prompt = `The user is on a treasure hunt looking for an object described as "${currentClue.targetDescription}". Does the main object in this image match the description? Answer with only "yes" or "no".`;
+        const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: { parts: [{ text: prompt }, imagePart] } });
+        const isMatch = response.text.toLowerCase().includes('yes');
+        if (isMatch) {
+          setTreasureHuntFeedback(`You found it! Great job!`);
+          const newClueIndex = treasureHunt.currentClueIndex + 1;
+          const isComplete = newClueIndex >= treasureHunt.clues.length;
+          setTreasureHunt(prev => prev ? ({ ...prev, currentClueIndex: newClueIndex, isComplete: isComplete }) : null);
+          logActivity('treasure-hunt', `Found clue for ${currentClue.targetDescription}`, 50);
+          setTreasureHuntProgressUpdate({ current: newClueIndex, total: treasureHunt.clues.length });
+          setTimeout(() => setTreasureHuntProgressUpdate(null), 2500);
+          if(isComplete) {
+             logActivity('treasure-hunt', `Completed a treasure hunt!`, 150);
+          }
+        } else {
+           const identificationPrompt = `Briefly identify the main object in this image in one or two words.`;
+           const idResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: { parts: [{ text: identificationPrompt }, imagePart] } });
+          setTreasureHuntFeedback(`Not quite! That looks like a ${idResponse.text}. Let's keep looking!`);
+        }
+      } catch (e) {
+        console.error("Treasure check error:", e);
+        setTreasureHuntFeedback("I had a little trouble seeing that. Can you try again?");
+      } finally {
+        setScreen('treasure-hunt-active');
+      }
+    };
+  
+    const handleStartLearningCamp = async (duration: number) => {
+        if (requireProfile()) return;
+        setIsCampLoading(true);
+        setScreen('learning-camp-view');
+        setActiveTab('Learning Camp');
+        try {
+            const langName = language === 'bn' ? 'Bengali' : 'English';
+            const age = userProfile ? calculateAge(userProfile.dob) : 6;
+            const agent = AGENT_PROFILES.MarkRober;
+            const prompt = `Generate a learning camp adventure for a ${age}-year-old child. The camp must last for ${duration} day(s). The language must be ${langName}. Each day must have a unique, fun theme (e.g., Space, Jungle, Ocean, Engineering) and follow a strict structure of exactly 4 activities in this order:
+    1.  An 'trail' activity: An exploration challenge like a quiz, riddle, or puzzle.
+    2.  An 'experiment' activity: A simple, hands-on experiment or build using common household items.
+    3.  A 'story' activity: An interactive, choose-your-own-path story adventure related to the day's theme.
+    4.  A 'wrap-up' activity: A summary of the day's learnings that awards a unique, creative badge and shares one cool fun fact.
+    Ensure all content is fun, educational, safe, and age-appropriate. The dialogue must be in the persona of Mark Rober.`;
+            const learningCampSchema = {
+                type: Type.OBJECT,
+                properties: {
+                    duration: { type: Type.INTEGER },
+                    days: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                activities: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            title: { type: Type.STRING },
+                                            type: { type: Type.STRING },
+                                            dialogue: { type: Type.STRING },
+                                            inputType: { type: Type.STRING },
+                                            question: { type: Type.STRING, nullable: true },
+                                            options: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true },
+                                            correctAnswerIndex: { type: Type.INTEGER, nullable: true },
+                                            materials: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true },
+                                            steps: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true },
+                                            explanation: { type: Type.STRING, nullable: true },
+                                            badgeName: { type: Type.STRING, nullable: true },
+                                            funFact: { type: Type.STRING, nullable: true },
+                                        },
+                                        required: ['title', 'type', 'dialogue', 'inputType']
+                                    }
+                                }
+                            },
+                            required: ['activities']
+                        }
+                    }
+                },
+                required: ['duration', 'days']
+            };
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: { systemInstruction: agent.systemInstruction, responseMimeType: 'application/json', responseSchema: learningCampSchema, },
+            });
+            const campData = JSON.parse(response.text);
+            setLearningCamp(campData);
+            setCampProgress({ currentDay: 1, currentActivityIndex: 0 });
+        } catch (e) {
+            console.error("Learning Camp generation error:", e);
+            setError("Sorry, I couldn't create the camp adventure right now. Please try again!");
+            goHome();
+        } finally {
+            setIsCampLoading(false);
+        }
+    };
+  
+    const handleAdvanceCamp = async (userInput?: { type: 'text' | 'image'; data: string }) => {
+        if (!learningCamp || !campProgress) return;
+        let nextActivityIndex = campProgress.currentActivityIndex + 1;
+        let nextDay = campProgress.currentDay;
+        if (nextActivityIndex >= (learningCamp.days[nextDay - 1]?.activities.length || 0)) {
+            nextActivityIndex = 0;
+            nextDay += 1;
+            if(nextDay <= learningCamp.duration) {
+              logActivity('learning-camp', `Completed Day ${nextDay-1} of Learning Camp`, 100);
+            } else {
+              logActivity('learning-camp', `Graduated from a ${learningCamp.duration}-day Learning Camp!`, 250);
+            }
+        }
+        setCampProgress({ currentDay: nextDay, currentActivityIndex: nextActivityIndex });
+    };
+
+    const handleFetchParentTips = useCallback(async () => {
+        if (!userProfile || !userProfile.activityLog || userProfile.activityLog.length === 0) {
+            setParentTips(t('parentDashboard.emptyTimeline'));
+            return;
+        }
+        setIsParentTipsLoading(true);
+        try {
+            const activitySummary = userProfile.activityLog.slice(0, 10).map(log => `- ${log.description} (XP: ${log.xpEarned})`).join('\n');
+            const prompt = `Based on this child's recent activity log, provide 3-4 actionable, positive, and personalized tips for their parents. The goal is to help the parent engage with their child's learning. Frame the tips as encouraging suggestions. The child's name is ${userProfile.name}. Recent Activities:\n${activitySummary}\nRespond in the user's language: ${language === 'bn' ? 'Bengali' : 'English'}. Format the response as a bulleted list.`;
+            const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
+            setParentTips(response.text);
+        } catch(e) {
+            console.error("Error generating parent tips:", e);
+            setParentTips("Could not generate tips at this time. Please try again later.");
+        } finally {
+            setIsParentTipsLoading(false);
+        }
+    }, [userProfile, language, t, ai.models]);
+
+  useEffect(() => {
+    if (screen === 'parent-dashboard') {
+        handleFetchParentTips();
+    }
+  }, [screen, handleFetchParentTips]);
+
   // --- Rendering Logic ---
   const renderScreen = () => {
     if (isAuthLoading) return <LoadingView t={t} />;
@@ -723,24 +1080,24 @@ Respond in the user's language: ${language === 'bn' ? 'Bengali' : 'English'}. Fo
       case "loading": return <LoadingView t={t} />;
       case "welcome": return <WelcomeScreen onSignIn={handleSignIn} onTryWithoutLogin={handleTryWithoutLogin} t={t} />;
       case "home": return <HomeView userProfile={userProfile} onNavigate={handleNav} t={t} />;
-      case "object-detector-gate": return <ObjectDetectorGate onStart={(agent) => { setActiveAgent(agent); setScreen("media"); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "media": return <MediaView onCapture={(base64, mime) => { /* Logic here */ }} videoRef={videoRef} t={t} />;
-      case "result": return <ResultView response={learningBuddyResponse} media={media} onAnswer={(i) => {}} answered={quizAnswered} correct={lastAnswerCorrect} onNext={() => {}} isInQuizSession={isInQuizSession} isLastQuestion={currentQuestionIndex === currentQuizSession.length - 1} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "quiz": return <QuizGate onStartQuiz={(agent) => { /* Logic here */ }} onStartCustomQuiz={(agent, topic) => { /* Logic here */ }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "quizSummary": return <QuizSummaryView correctAnswers={quizSessionCorrectAnswers} totalQuestions={currentQuizSession.length} level={userProfile?.progress.quizLevel || 1} onContinue={() => {}} onGoHome={goHome} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "story": return <StoryView story={story} onStart={(agent, context) => {}} onChoice={(choice) => {}} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "object-detector-gate": return <ObjectDetectorGate onStart={(agent) => { setActiveAgent(agent); setScanContext('object-detector'); setScreen("media"); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "media": return <MediaView onCapture={handleCapture} videoRef={videoRef} t={t} />;
+      case "result": return <ResultView response={learningBuddyResponse} media={media} onAnswer={handleAnswerQuiz} answered={quizAnswered} correct={lastAnswerCorrect} onNext={handleNextQuizQuestion} isInQuizSession={isInQuizSession} isLastQuestion={currentQuestionIndex === currentQuizSession.length - 1} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "quiz": return <QuizGate onStartQuiz={(agent) => handleStartQuiz(agent)} onStartCustomQuiz={(agent, topic) => handleStartQuiz(agent, topic)} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "quizSummary": return <QuizSummaryView correctAnswers={quizSessionCorrectAnswers} totalQuestions={currentQuizSession.length} level={userProfile?.progress.quizLevel || 1} onContinue={() => handleStartQuiz(activeAgent)} onGoHome={goHome} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "story": return <StoryView story={story} onStart={handleStartStory} onChoice={(choice) => story?.choices.length > 2 ? handleContinueStory(choice) : handleFinalStoryChoice(choice)} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "rewards": return <RewardsView progress={userProfile?.progress!} stickers={discoveredObjects} t={t} />;
       case "homework": return <HomeworkGate onSelectMode={(agent, mode) => { setActiveAgent(agent); setHomeworkMode(mode); setScreen('homework-solver'); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "homework-solver": return <HomeworkSolverView mode={homeworkMode!} onGenerateSolution={handleGenerateHomeworkSolution} onScanRequest={() => { setIsScanningForHomework(true); setScreen('media'); }} chatHistory={homeworkChatHistory} onSendFollowup={handleSendHomeworkFollowup} isLoading={isHomeworkLoading} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "voice-assistant-gate": return <VoiceAssistantGate onAgentSelect={(agent) => { setSelectedAgent(agent); setScreen('voice-assistant'); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "voice-assistant": return selectedAgent && <VoiceAssistantView agent={selectedAgent} history={voiceAssistantHistory} avatarState={agentAvatarState} isCameraEnabled={isCameraEnabled} setIsCameraEnabled={setIsCameraEnabled} localVideoEl={localVideoEl} onSendMessage={(msg) => {}} onBack={goHome} t={t} inputText={voiceAssistantInputText} setInputText={setVoiceAssistantInputText} />;
+      case "homework-solver": return <HomeworkSolverView mode={homeworkMode!} onGenerateSolution={handleGenerateHomeworkSolution} onScanRequest={() => { setScanContext('homework'); setScreen('media'); }} chatHistory={homeworkChatHistory} onSendFollowup={handleSendHomeworkFollowup} isLoading={isHomeworkLoading} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "voice-assistant-gate": return <VoiceAssistantGate onAgentSelect={handleStartVoiceAssistant} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "voice-assistant": return selectedAgent && <VoiceAssistantView agent={selectedAgent} history={voiceAssistantHistory} avatarState={agentAvatarState} isCameraEnabled={isCameraEnabled} setIsCameraEnabled={setIsCameraEnabled} localVideoEl={localVideoEl} onSendMessage={handleSendVoiceAssistantMessage} onBack={goHome} t={t} inputText={voiceAssistantInputText} setInputText={setVoiceAssistantInputText} />;
       case "playground-gate": return <PlaygroundGate onStart={(agent) => { setActiveAgent(agent); setScreen('playground-live'); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "playground-live": return <PlaygroundLiveView videoRef={videoRef} narrationText={narrationText} onVideoReady={() => {}} t={t} />;
       case "profile": return <ProfileView profile={userProfile} onSave={handleSaveProfile} onClearData={handleClearData} onMinimize={goHome} onClose={goHome} t={t} />;
-      case "treasure-hunt-gate": return <TreasureHuntGate onStart={(agent) => {}} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "treasure-hunt-active": return <TreasureHuntView hunt={treasureHunt} onScanRequest={() => { setIsScanningForTreasure(true); setScreen('media'); }} feedback={treasureHuntFeedback} onPlayAgain={() => {}} onGoHome={goHome} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "treasure-hunt-gate": return <TreasureHuntGate onStart={handleStartTreasureHunt} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "treasure-hunt-active": return <TreasureHuntView hunt={treasureHunt} onScanRequest={() => { setScanContext('treasure-hunt'); setScreen('media'); }} feedback={treasureHuntFeedback} onPlayAgain={() => handleStartTreasureHunt(activeAgent)} onGoHome={goHome} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "learning-camp-gate": return <LearningCampGate onStart={handleStartLearningCamp} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
-      case "learning-camp-view": return <LearningCampView camp={learningCamp} progress={campProgress} onAdvance={handleAdvanceCamp} isLoading={isCampLoading} onScanRequest={() => { setIsScanningForCamp(true); setScreen('media'); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
+      case "learning-camp-view": return <LearningCampView camp={learningCamp} progress={campProgress} onAdvance={handleAdvanceCamp} isLoading={isCampLoading} onScanRequest={() => { setScanContext('learning-camp'); setScreen('media'); }} onMinimize={goHome} onClose={handleCloseFeature} t={t} />;
       case "about": return <StaticPages.AboutUsScreen t={t} />;
       case "terms": return <StaticPages.TermsScreen t={t} />;
       case "privacy": return <StaticPages.PrivacyScreen t={t} />;
@@ -753,6 +1110,7 @@ Respond in the user's language: ${language === 'bn' ? 'Bengali' : 'English'}. Fo
   const showBottomNav = ['home'].includes(screen);
   const showBackButton = !['welcome', 'loading', 'home', 'voice-assistant', 'playground-live'].includes(screen);
   
+  // FIX: Hoisted declaration to resolve reference error.
   const headerTitleMapping: { [key: string]: string[] } = {
     home: ['home'],
     objectDetector: ['media', 'result', 'object-detector-gate'],

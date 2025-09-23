@@ -2,7 +2,7 @@ import React from 'react';
 
 export const HomeIcon = () => (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    xmlns="http://www.w.org/2000/svg"
     width="24"
     height="24"
     viewBox="0 0 24"
@@ -251,7 +251,7 @@ export const AgentIcon = () => (
         <path d="M12 8V4H8" />
         <rect x="4" y="12" width="16" height="8" rx="2" />
         <path d="M12 12v8" /> <path d="M9 16.5v-1" /> <path d="M15 16.5v-1" />
-        <path d="M16 4h- 상황" />
+        <path d="M16 4h-8" />
         <circle cx="9" cy="8" r="1" />
         <circle cx="15" cy="8" r="1" />
     </svg>

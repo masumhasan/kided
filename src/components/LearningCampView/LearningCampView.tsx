@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import type { LearningCamp, CampProgress, CampActivity } from '../../lib/types';
-import { __FORCE_MODULE_EVALUATION } from '../../lib/types';
 import { LoadingView } from '../LoadingView/LoadingView';
 import { CardControls } from '../CardControls/CardControls';
 import './LearningCampView.css';
 
-// This line ensures the import is not tree-shaken, making JSX types available.
-if (false) console.log(__FORCE_MODULE_EVALUATION);
+// FIX: Changed to a side-effect import to load global JSX definitions for custom elements.
+import '../../lib/types';
+
 
 type LearningCampViewProps = {
   camp: LearningCamp | null;
