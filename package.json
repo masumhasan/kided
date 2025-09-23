@@ -9,16 +9,35 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.1.1",
-    "@google/genai": "^1.19.0",
-    "react-dom": "^19.1.1",
+    "@google/genai": "^1.20.0",
+    "firebase": "^12.3.0",
     "livekit-client": "^2.15.7",
-    "firebase": "^12.3.0"
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.3",
+    "terser": "^5.44.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
-  }
+    "vite": "^6.3.6"
+  },
+  "description": "![KidEd Welcome Screen](https://raw.githubusercontent.com/masumhasan/eduplay/refs/heads/main/images/edubot.gif)",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/masumhasan/kided.git"
+  },
+  "keywords": [],
+  "author": "NUR HASAN MASUM",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/masumhasan/kided/issues"
+  },
+  "homepage": "https://github.com/masumhasan/kided#readme"
 }
