@@ -9,6 +9,9 @@ type SidebarProps = {
   onClose: () => void;
   onNavigate: (screen: Screen) => void;
   onFeatureNav: (tab: ActiveTab) => void;
+  isAuthenticated: boolean;
+  onSignIn: () => void;
+  onSignOut: () => void;
   t: (key: string) => string;
 };
 
@@ -16,12 +19,11 @@ const FeatureItem = ({ icon, label, onClick }: { icon: JSX.Element, label: strin
     <a onClick={onClick} className="sidebar-feature-item">
         <div className="sidebar-feature-icon">{icon}</div>
         <span>{label}</span>
-        <div className="sidebar-feature-status" title={'Online'}></div>
     </a>
 );
 
 
-export const Sidebar = ({ isOpen, onClose, onNavigate, onFeatureNav, t }: SidebarProps) => {
+export const Sidebar = ({ isOpen, onClose, onNavigate, onFeatureNav, isAuthenticated, onSignIn, onSignOut, t }: SidebarProps) => {
     
     const features: { tab: ActiveTab; icon: JSX.Element; label: string }[] = [
         { tab: 'Home', icon: <HomeIcon />, label: t('nav.home') },
@@ -43,6 +45,16 @@ export const Sidebar = ({ isOpen, onClose, onNavigate, onFeatureNav, t }: Sideba
 
     const handleFeatureClick = (tab: ActiveTab) => {
         onFeatureNav(tab);
+        onClose();
+    };
+
+    const handleSignOutClick = () => {
+        onSignOut();
+        onClose();
+    }
+    
+    const handleSignInClick = () => {
+        onSignIn();
         onClose();
     };
 
@@ -72,6 +84,10 @@ export const Sidebar = ({ isOpen, onClose, onNavigate, onFeatureNav, t }: Sideba
                 <div className="sidebar-section">
                      <h4>{t('sidebar.settings')}</h4>
                     <nav className="sidebar-nav static">
+                        <a onClick={() => handleStaticNavClick('parent-dashboard')} className="sidebar-feature-item">
+                            <div className="sidebar-feature-icon"><ProfileIcon /></div>
+                            <span>{t('sidebar.parentDashboard')}</span>
+                        </a>
                         <a onClick={() => handleStaticNavClick('profile')} className="sidebar-feature-item">
                              <div className="sidebar-feature-icon"><ProfileIcon /></div>
                             <span>{t('sidebar.profile')}</span>
@@ -79,6 +95,15 @@ export const Sidebar = ({ isOpen, onClose, onNavigate, onFeatureNav, t }: Sideba
                         <a onClick={() => handleStaticNavClick('about')}>{t('sidebar.about')}</a>
                         <a onClick={() => handleStaticNavClick('terms')}>{t('sidebar.terms')}</a>
                         <a onClick={() => handleStaticNavClick('privacy')}>{t('sidebar.privacy')}</a>
+                         {isAuthenticated ? (
+                            <a onClick={handleSignOutClick} className="sidebar-feature-item">
+                                <span>{t('sidebar.signOut')}</span>
+                            </a>
+                        ) : (
+                            <a onClick={handleSignInClick} className="sidebar-feature-item">
+                                <span>{t('sidebar.signIn')}</span>
+                            </a>
+                        )}
                     </nav>
                 </div>
             </div>

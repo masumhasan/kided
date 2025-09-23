@@ -1,4 +1,7 @@
 import React from 'react';
+import { UserProfile } from '../../lib/types';
+import { QuizIcon, ObjectsIcon, StoryIcon, StarIcon, LightbulbIcon, TreasureHuntIcon, ScienceIcon } from '../Icons/Icons';
+import { LoadingView } from '../LoadingView/LoadingView';
 import './StaticPages.css';
 
 type StaticPageProps = {
@@ -59,10 +62,81 @@ export const PrivacyScreen = ({ t }: StaticPageProps) => (
     </div>
 );
 
-const StaticPages = {
-    AboutUsScreen,
-    TermsScreen,
-    PrivacyScreen,
+
+const activityIcons: { [key: string]: JSX.Element } = {
+  'quiz': <QuizIcon />,
+  'object-scan': <ObjectsIcon />,
+  'story': <StoryIcon />,
+  'treasure-hunt': <TreasureHuntIcon />,
+  'learning-camp': <ScienceIcon />,
+  'default': <StarIcon filled />,
+};
+
+type ParentDashboardProps = {
+    profile: UserProfile | null;
+    tips: string;
+    isLoadingTips: boolean;
+    t: (key: string) => string;
 }
+export const ParentDashboardView = ({ profile, tips, isLoadingTips, t }: ParentDashboardProps) => {
+    const formatTimestamp = (isoString: string) => {
+        return new Date(isoString).toLocaleString(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
+    };
+
+    return (
+        <div className="parent-dashboard-view">
+            <h2>{t('parentDashboard.title')}</h2>
+            <p>{t('parentDashboard.description').replace('{name}', profile?.name || 'your child')}</p>
+
+            <div className="dashboard-section">
+                <h3><StarIcon filled /> {t('parentDashboard.timelineHeader')}</h3>
+                {profile?.activityLog && profile.activityLog.length > 0 ? (
+                    <ul className="timeline">
+                        {profile.activityLog.map(log => (
+                            <li key={log.id} className="timeline-item">
+                                <div className="timeline-icon">
+                                    {activityIcons[log.type] || activityIcons['default']}
+                                </div>
+                                <div className="timeline-content">
+                                    <h4>{log.description}</h4>
+                                    <p className="timestamp">{formatTimestamp(log.timestamp)}</p>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="empty-timeline">{t('parentDashboard.emptyTimeline')}</p>
+                )}
+            </div>
+            
+            <div className="dashboard-section">
+                <h3><LightbulbIcon /> {t('parentDashboard.tipsHeader')}</h3>
+                {isLoadingTips ? (
+                    <LoadingView t={t} />
+                ) : (
+                    <div className="tips-content" dangerouslySetInnerHTML={{ __html: tips.replace(/\*/g, '').replace(/\n/g, '<br />') }} />
+                )}
+            </div>
+        </div>
+    );
+};
+
+// FIX: This structure was causing issues with React.lazy.
+// It's better to have a default export that is a component.
+const StaticPages: React.FC & {
+    AboutUsScreen: typeof AboutUsScreen;
+    TermsScreen: typeof TermsScreen;
+    PrivacyScreen: typeof PrivacyScreen;
+    ParentDashboardView: typeof ParentDashboardView;
+// A dummy component that holds the actual components as properties.
+} = () => null;
+
+StaticPages.AboutUsScreen = AboutUsScreen;
+StaticPages.TermsScreen = TermsScreen;
+StaticPages.PrivacyScreen = PrivacyScreen;
+StaticPages.ParentDashboardView = ParentDashboardView;
 
 export default StaticPages;

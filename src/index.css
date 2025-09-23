@@ -12,6 +12,7 @@
   --playground-bg: #166534; /* Dark Green */
   --treasure-hunt-bg: #96c9eaf5; /* Light blue for adventure */
   --learning-camp-bg: linear-gradient(135deg, #f12711, #f5af19); /* Orange/Yellow gradient for camp */
+  --parent-dashboard-bg: linear-gradient(135deg, #2E3192, #4c4088);
   --home-bg-light: #f5f6fa; /* Lighter than before */
   --profile-bg: #f5f6fa;
 
@@ -48,6 +49,7 @@
   --dm-homework-bg: #004d40; /* Dark Teal */
   --dm-playground-bg: #166534; /* Dark Green */
   --dm-learning-camp-bg: linear-gradient(135deg, #b01c0d, #b88213);
+  --dm-parent-dashboard-bg: #1a1a2e;
   --dm-nav-bg: rgba(30, 30, 30, 0.8);
 
   /* Messenger UI Dark Mode Colors */
@@ -110,6 +112,7 @@ body.homework-solver-bg { background-color: var(--homework-bg); }
 body.treasure-hunt-gate-bg { background-color: var(--treasure-hunt-bg); }
 body.treasure-hunt-active-bg { background-color: var(--treasure-hunt-bg); }
 body.learning-camp-gate-bg, body.learning-camp-view-bg { background: var(--learning-camp-bg); }
+body.parent-dashboard-bg { background: var(--parent-dashboard-bg); }
 
 
 /* --- General Components --- */
@@ -118,8 +121,9 @@ body.learning-camp-gate-bg, body.learning-camp-view-bg { background: var(--learn
 .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--action-cyan-dark); }
 
 .btn.btn-start {
-    background-color: var(--action-cyan);
-    box-shadow: 0 4px 0 var(--action-cyan-dark);
+    background-color: var(--white);
+    color: var(--text-dark);
+    box-shadow: 0 4px 0 #BDBDBD;
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -127,10 +131,10 @@ body.learning-camp-gate-bg, body.learning-camp-view-bg { background: var(--learn
     font-size: 1.4rem;
 }
 .btn.btn-start:hover {
-    box-shadow: 0 6px 0 var(--action-cyan-dark);
+    box-shadow: 0 6px 0 #BDBDBD;
 }
 .btn.btn-start:active {
-    box-shadow: 0 2px 0 var(--action-cyan-dark);
+    box-shadow: 0 2px 0 #BDBDBD;
 }
 
 .btn-secondary { background-color: var(--light-gray); color: var(--text-dark); box-shadow: 0 4px 0 #BDBDBD; }
@@ -175,6 +179,7 @@ body.dark-mode.homework-bg, body.dark-mode.homework-solver-bg { background-color
 body.dark-mode.playground-gate-bg { background-color: var(--dm-playground-bg); }
 body.dark-mode.learning-camp-gate-bg, body.dark-mode.learning-camp-view-bg { background: var(--dm-learning-camp-bg); }
 body.dark-mode.about-bg, body.dark-mode.terms-bg, body.dark-mode.privacy-bg { background: #1a1a2e; }
+body.dark-mode.parent-dashboard-bg { background-color: var(--dm-parent-dashboard-bg); }
 body.dark-mode.voice-assistant-gate-bg { background-color: var(--dm-voice-assistant-bg); }
 body.dark-mode.voice-assistant-bg { background-color: var(--messenger-header-dark); }
 

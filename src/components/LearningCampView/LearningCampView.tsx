@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-// FIX: Add type-only import to load global JSX element definitions for custom elements like 'lottie-player'.
-import type {} from '../../lib/types';
-import { LearningCamp, CampProgress, CampActivity } from '../../lib/types';
+// FIX: Added a side-effect import to ensure TypeScript loads the global JSX definitions for the 'lottie-player' custom element, as type-only imports are elided during compilation.
+import '../../lib/types';
+import type { LearningCamp, CampProgress, CampActivity } from '../../lib/types';
 import { LoadingView } from '../LoadingView/LoadingView';
 import { CardControls } from '../CardControls/CardControls';
 import './LearningCampView.css';
@@ -22,33 +22,31 @@ const LearningCampView = ({ camp, progress, onAdvance, isLoading, onScanRequest,
     const [isCorrect, setIsCorrect] = useState(false);
     const [textInput, setTextInput] = useState('');
 
+    if (isLoading && (!camp || !progress)) {
+        return <LoadingView t={t} />;
+    }
+    
     if (!camp || !progress) {
         return <LoadingView t={t} />;
     }
     
-    const currentDayData = camp.days[progress.currentDay - 1];
-    const currentActivity = currentDayData?.activities[progress.currentActivityIndex];
-    
     const isCampFinished = progress.currentDay > camp.duration;
 
     if (isCampFinished) {
-        const lastDay = camp.days[camp.duration-1];
-        const finalActivity = lastDay?.activities[lastDay.activities.length - 1];
-
         return (
              <div className="camp-final-screen">
                 <h2>🎉 {t('learningCamp.graduationTitle')} 🎉</h2>
-                <p>{finalActivity?.dialogue || t('learningCamp.graduationMessage')}</p>
+                <p>{t('learningCamp.graduationMessage')}</p>
                 <button className="btn" onClick={onClose}>{t('quizSummary.goHome')}</button>
             </div>
         );
     }
     
-    if (isLoading && !currentActivity) {
-        return <LoadingView t={t} />;
-    }
+    const currentDayData = camp.days[progress.currentDay - 1];
+    const currentActivity = currentDayData?.activities[progress.currentActivityIndex];
 
     if (!currentActivity) {
+        // This can happen briefly when advancing a day
         return <LoadingView t={t} />;
     }
 
@@ -77,7 +75,7 @@ const LearningCampView = ({ camp, progress, onAdvance, isLoading, onScanRequest,
         onAdvance();
     };
     
-    const totalActivitiesPerDay = 4;
+    const totalActivitiesPerDay = currentDayData?.activities.length || 4;
     const activitiesCompletedToday = progress.currentActivityIndex;
     const progressPercent = (activitiesCompletedToday / totalActivitiesPerDay) * 100;
 
@@ -130,7 +128,7 @@ const LearningCampView = ({ camp, progress, onAdvance, isLoading, onScanRequest,
         if (isLoading) return <LoadingView t={t} />;
 
         // For quiz-style trails, the continue button is in the feedback overlay
-        if (activity.type === 'trail') {
+        if (activity.type === 'trail' && !answered) {
             return null;
         }
 

@@ -1,6 +1,6 @@
 import React from 'react';
-// FIX: Add type-only import to load global JSX element definitions.
-import type {} from '../../lib/types';
+// FIX: Replaced an unused type import with a side-effect import to ensure TypeScript loads the global JSX definitions for the 'lottie-player' custom element.
+import '../../lib/types';
 import './TreasureHuntProgress.css';
 
 type TreasureHuntProgressProps = {

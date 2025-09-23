@@ -1,6 +1,6 @@
-import type React from 'react';
+import React from 'react';
 
-// FIX: Updated the global JSX type definition for the 'lottie-player' custom element to resolve unrecognized element errors.
+// FIX: Changed to a full React import to allow extending the JSX namespace for custom elements.
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -14,6 +14,9 @@ declare global {
     }
   }
 }
+
+// FIX: Export a dummy constant to prevent tree-shaking of this module.
+export const __FORCE_MODULE_EVALUATION = true;
 
 // Screens and Navigation
 export type Screen =
@@ -38,11 +41,12 @@ export type Screen =
   | "learning-camp-gate"
   | "learning-camp-view"
   | "object-detector-gate"
+  | "parent-dashboard"
   | "about"
   | "terms"
   | "privacy";
   
-export type ActiveTab = "Home" | "Object Scan" | "Story" | "Quiz" | "Rewards" | "Menu" | "Homework" | "Voice Assistant" | "Playground" | "Treasure Hunt" | "Learning Camp";
+export type ActiveTab = "Home" | "Object Scan" | "Story" | "Quiz" | "Rewards" | "Menu" | "Homework" | "Voice Assistant" | "Playground" | "Treasure Hunt" | "Learning Camp" | "Parent Dashboard";
 export type MediaType = 'image' | 'video' | 'audio';
 
 // Language
@@ -95,12 +99,24 @@ export type FamilyMember = {
     relationship: string;
 };
 
+export type ActivityType = 'quiz' | 'object-scan' | 'story' | 'treasure-hunt' | 'learning-camp';
+
+export type ActivityLog = {
+    id: string;
+    type: ActivityType;
+    timestamp: string;
+    description: string;
+    xpEarned: number;
+};
+
 export type UserProfile = {
+    uid: string;
     id: string;
     name: string;
     dob: string;
     familyMembers: FamilyMember[];
     progress: UserProgress;
+    activityLog: ActivityLog[];
     createdAt: string;
     updatedAt: string;
 };

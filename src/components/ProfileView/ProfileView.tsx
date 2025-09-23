@@ -6,7 +6,8 @@ import './ProfileView.css';
 
 type ProfileViewProps = {
     profile: UserProfile | null;
-    onSave: (profileData: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt' | 'progress'>) => void;
+    // FIX: Updated onSave prop type to align with App.tsx's handleSaveProfile, which doesn't expect uid or activityLog.
+    onSave: (profileData: Omit<UserProfile, 'uid' | 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'activityLog'>) => void;
     onClearData: () => void;
     onMinimize: () => void;
     onClose: () => void;
