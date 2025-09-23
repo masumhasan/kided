@@ -25,7 +25,7 @@ import {
     Screen, ActiveTab, Language, LearningBuddyResponse, UserProgress,
     DiscoveredObject, StorySegment, ChatMessage, QuizQuestion, HomeworkMode,
     AgentProfile, AgentAvatarState, UserProfile, TreasureHunt,
-    LearningCamp, CampProgress, ActivityLog, ActivityType
+    LearningCamp, CampProgress, ActivityLog, ActivityType, Badge
 } from './lib/types';
 import { AGENT_PROFILES } from './lib/agents';
 import { translations } from './lib/i18n';
@@ -238,12 +238,29 @@ const App = () => {
         } else {
             setFirebaseUser(null);
             setUserProfile(null);
-            setScreen("welcome");
+            if (!isGuest) {
+              // This is a full logout or an unauthenticated user. Reset all session state.
+              setDiscoveredObjects([]);
+              setStory(null);
+              setQuizHistory([]);
+              setCurrentQuizSession([]);
+              setCurrentQuestionIndex(0);
+              setQuizAnswered(false);
+              setLastAnswerCorrect(false);
+              setHomeworkChatHistory([]);
+              setHomeworkChat(null);
+              setTreasureHunt(null);
+              setLearningCamp(null);
+              setCampProgress(null);
+              setVoiceAssistantHistory([]);
+              setChat(null);
+              setScreen("welcome");
+            }
         }
         setIsAuthLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [isGuest]);
   
   useEffect(() => {
     document.body.className = `${screen}-bg ${isDarkMode ? "dark-mode" : ""} ${language === 'bn' ? 'lang-bn' : ''}`;
@@ -357,26 +374,8 @@ const App = () => {
   
   const handleTryWithoutLogin = () => {
     setIsGuest(true);
-    const guestProfile: UserProfile = {
-        uid: 'guest',
-        id: 'guest_profile',
-        name: 'Explorer', // A friendly guest name
-        dob: '2018-01-01', // A default DOB for age calculation
-        familyMembers: [],
-        progress: {
-            stars: 0,
-            quizzesCompleted: 0,
-            objectsDiscovered: 0,
-            learningStreak: 0,
-            quizLevel: 1,
-            xp: 0,
-        },
-        activityLog: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-    };
-    setUserProfile(guestProfile);
-    setScreen("home");
+    setUserProfile(null);
+    setScreen("profile");
   };
 
 
@@ -411,6 +410,33 @@ const App = () => {
           return updatedProfile;
       });
   }, [firebaseUser, isGuest]);
+  
+  const awardBadge = useCallback((badgeName: string, badgeId: string) => {
+    const newBadge: Badge = {
+        id: badgeId,
+        name: badgeName,
+        earnedOn: new Date().toISOString(),
+    };
+
+    setUserProfile(currentProfile => {
+        if (!currentProfile) return null;
+        
+        if (currentProfile.badges?.some(b => b.id === newBadge.id)) {
+            return currentProfile;
+        }
+
+        const updatedProfile = {
+            ...currentProfile,
+            badges: [...(currentProfile.badges || []), newBadge],
+            updatedAt: new Date().toISOString(),
+        };
+
+        if (firebaseUser && !isGuest) {
+            setDoc(doc(db, 'users', firebaseUser.uid), updatedProfile);
+        }
+        return updatedProfile;
+    });
+  }, [firebaseUser, isGuest]);
 
    const logActivity = useCallback((type: ActivityType, description: string, xpEarned: number) => {
         const newLog: ActivityLog = {
@@ -426,12 +452,27 @@ const App = () => {
         }), newLog);
     }, [updateUserProgress]);
 
-  const handleSaveProfile = (profileData: Omit<UserProfile, 'uid' | 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'activityLog'>) => {
+  const handleSaveProfile = (profileData: Omit<UserProfile, 'uid' | 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'activityLog' | 'badges'>) => {
       if (isGuest) {
-          setUserProfile(currentProfile => {
-              if (!currentProfile) return null;
-              return { ...currentProfile, ...profileData, updatedAt: new Date().toISOString() };
-          });
+          const now = new Date().toISOString();
+          const guestProfile: UserProfile = {
+              uid: 'guest',
+              id: `guest_${Date.now()}`,
+              ...profileData,
+              createdAt: now,
+              updatedAt: now,
+              progress: {
+                  stars: 0,
+                  quizzesCompleted: 0,
+                  objectsDiscovered: 0,
+                  learningStreak: 0,
+                  quizLevel: 1,
+                  xp: 0,
+              },
+              activityLog: [],
+              badges: [],
+          };
+          setUserProfile(guestProfile);
           setScreen("home");
           setActiveTab("Home");
           return;
@@ -454,6 +495,7 @@ const App = () => {
               xp: 0,
           },
           activityLog: userProfile?.activityLog || [],
+          badges: userProfile?.badges || [],
       };
       
       setDoc(doc(db, 'users', firebaseUser.uid), newProfile).then(() => {
@@ -1033,6 +1075,13 @@ const App = () => {
   
     const handleAdvanceCamp = async (userInput?: { type: 'text' | 'image'; data: string }) => {
         if (!learningCamp || !campProgress) return;
+        
+        const currentActivity = learningCamp.days[campProgress.currentDay - 1]?.activities[campProgress.currentActivityIndex];
+        if (currentActivity?.type === 'wrap-up' && currentActivity.badgeName) {
+            const badgeId = `camp-day-${campProgress.currentDay}-${currentActivity.badgeName.toLowerCase().replace(/\s/g, '-')}`;
+            awardBadge(currentActivity.badgeName, badgeId);
+        }
+
         let nextActivityIndex = campProgress.currentActivityIndex + 1;
         let nextDay = campProgress.currentDay;
         if (nextActivityIndex >= (learningCamp.days[nextDay - 1]?.activities.length || 0)) {
@@ -1110,7 +1159,6 @@ const App = () => {
   const showBottomNav = ['home'].includes(screen);
   const showBackButton = !['welcome', 'loading', 'home', 'voice-assistant', 'playground-live'].includes(screen);
   
-  // FIX: Hoisted declaration to resolve reference error.
   const headerTitleMapping: { [key: string]: string[] } = {
     home: ['home'],
     objectDetector: ['media', 'result', 'object-detector-gate'],
