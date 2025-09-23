@@ -29,6 +29,34 @@ type UseSpeechRecognitionArgs = {
 export const useSpeechRecognition = ({ onResult, language }: UseSpeechRecognitionArgs) => {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const stoppedIntentionallyRef = useRef(true);
+
+  const onResultRef = useRef(onResult);
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
+
+  const startListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        stoppedIntentionallyRef.current = false;
+        recognitionRef.current.start();
+      } catch (e) {
+        console.warn("Speech recognition could not start (might be already active):", e);
+      }
+    }
+  }, []);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        stoppedIntentionallyRef.current = true;
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.error("Could not stop speech recognition:", e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -50,39 +78,45 @@ export const useSpeechRecognition = ({ onResult, language }: UseSpeechRecognitio
         }
       }
       if (finalTranscript) {
-        onResult(finalTranscript.trim());
+        onResultRef.current(finalTranscript.trim());
       }
     };
 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      // This is the key fix: auto-restart recognition if it stops unexpectedly.
+      if (!stoppedIntentionallyRef.current) {
+        setTimeout(() => startListening(), 100);
+      }
+    };
+
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
       setIsListening(false);
+      // Allow restarting for non-critical errors.
+      if (event.error === 'no-speech' || event.error === 'audio-capture') {
+          stoppedIntentionallyRef.current = false;
+      } else {
+          stoppedIntentionallyRef.current = true;
+      }
     };
     
     recognitionRef.current = recognition;
 
+    // Cleanup function to stop recognition when the component unmounts or language changes
     return () => {
-      recognition.stop();
-    };
-  }, [language, onResult]);
-
-  const startListening = useCallback(() => {
-    if (recognitionRef.current && !isListening) {
-      try {
-        recognitionRef.current.start();
-      } catch (e) {
-        console.error("Could not start speech recognition:", e);
+      stoppedIntentionallyRef.current = true;
+      if (recognitionRef.current) {
+        recognitionRef.current.onend = null; // Prevent restart on unmount
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.stop();
       }
-    }
-  }, [isListening]);
-
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-    }
-  }, [isListening]);
+    };
+  }, [language, startListening]);
 
   return { isListening, startListening, stopListening };
 };

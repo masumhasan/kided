@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Part } from "@google/genai";
 import { AgentProfile, AgentName, AgentAvatarState, ChatMessage } from '../../lib/types';
 import { AGENT_PROFILES } from '../../lib/agents';
 import { useSpeechRecognition } from '../../../hooks/useSpeechRecognition';
-import { MicOnIcon, MicOffIcon, SettingsIcon, HangUpIcon } from '../Icons/Icons';
+import { MicOnIcon, MicOffIcon, SettingsIcon, HangUpIcon, SendIcon } from '../Icons/Icons';
 import './VoiceRoomView.css';
 
 type VoiceRoomViewProps = {
@@ -20,6 +21,7 @@ const VoiceRoomView = ({ ai, userProfile, language, speak, onClose, t }: VoiceRo
   const [agentState, setAgentState] = useState<AgentAvatarState>('listening');
   const [transcription, setTranscription] = useState<ChatMessage[]>([]);
   const [isMuted, setIsMuted] = useState(false);
+  const [inputText, setInputText] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
@@ -76,20 +78,55 @@ const VoiceRoomView = ({ ai, userProfile, language, speak, onClose, t }: VoiceRo
     }
   };
 
+  const handleSendTextMessage = () => {
+    if (!inputText.trim() || agentState !== 'listening') return;
+
+    const userMessage = inputText.trim();
+    setInputText('');
+    setTranscription(prev => [...prev, { sender: 'user', text: userMessage }]);
+    setAgentState('thinking');
+    
+    captureFrame(videoRef).then(framePart => {
+      processAiTurn(userMessage, framePart);
+    });
+  };
+
   useEffect(() => {
     const startMedia = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        mediaStreamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        let stream: MediaStream | null = null;
+        try {
+            // Try getting both video and audio first
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        } catch (err: any) {
+            console.warn("Could not get both video and audio:", err.name, err.message);
+            // If we couldn't get both, try audio only. This handles cases where a user has no camera.
+            if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError" || err.name === "NotReadableError") {
+                try {
+                    console.log("Trying to get audio only...");
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                } catch (audioErr: any) {
+                    console.error("Error accessing audio device.", audioErr);
+                    alert("A microphone is required for the VoiceRoom.");
+                    onClose();
+                    return;
+                }
+            } else {
+                 // Handle other critical errors like PermissionDeniedError
+                 console.error("Error accessing media devices.", err);
+                 alert("Camera and microphone access are needed for the VoiceRoom.");
+                 onClose();
+                 return;
+            }
         }
-        startListening();
-      } catch (err) {
-        console.error("Error accessing media devices.", err);
-        alert("Camera and microphone access are needed for the VoiceRoom.");
-        onClose();
-      }
+
+        if (stream) {
+            mediaStreamRef.current = stream;
+            if (videoRef.current) {
+                // This will only show video if the stream has a video track
+                videoRef.current.srcObject = stream;
+            }
+            startListening();
+        }
     };
     startMedia();
 
@@ -102,7 +139,10 @@ const VoiceRoomView = ({ ai, userProfile, language, speak, onClose, t }: VoiceRo
   }, [startListening, stopListening, onClose]);
   
   const captureFrame = async (videoRef: React.RefObject<HTMLVideoElement>): Promise<Part | null> => {
-    if (!videoRef.current || videoRef.current.readyState < 2) return null;
+    // Only capture a frame if there's an active video track
+    if (!videoRef.current || videoRef.current.readyState < 2 || !mediaStreamRef.current?.getVideoTracks().find(t => t.enabled && t.readyState === 'live')) {
+        return null;
+    }
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
@@ -194,6 +234,25 @@ const VoiceRoomView = ({ ai, userProfile, language, speak, onClose, t }: VoiceRo
               </p>
             ))}
           </div>
+           <div className="vr-chat-input-area">
+              <input
+                type="text"
+                className="vr-chat-input"
+                placeholder="Type a message..."
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyPress={(e) => { if (e.key === 'Enter') { handleSendTextMessage(); } }}
+                disabled={agentState !== 'listening'}
+              />
+              <button
+                className="vr-chat-send-btn"
+                onClick={handleSendTextMessage}
+                disabled={!inputText.trim() || agentState !== 'listening'}
+                aria-label="Send message"
+              >
+                <SendIcon />
+              </button>
+            </div>
         </aside>
       </main>
 
