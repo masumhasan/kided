@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Part } from "@google/genai";
 import { AgentProfile, AgentName, AgentAvatarState, ChatMessage } from '../../lib/types';
@@ -11,7 +12,7 @@ type VoiceRoomViewProps = {
   ai: GoogleGenAI;
   userProfile: any;
   language: 'en' | 'bn';
-  speak: (text: string, lang: 'en' | 'bn', onEnd: () => void) => void;
+  speak: (text: string, voiceId: string, onEnd: () => void) => void;
   onClose: () => void;
   t: (key: string) => string;
 };
@@ -63,7 +64,7 @@ const VoiceRoomView = ({ ai, userProfile, language, speak, onClose, t }: VoiceRo
       const aiResponseText = response.text;
       setTranscription(prev => [...prev, { sender: 'buddy', text: aiResponseText }]);
       setAgentState('speaking');
-      speak(aiResponseText, language, () => {
+      speak(aiResponseText, activeAgent.voiceId, () => {
         setAgentState('listening');
       });
 
@@ -72,7 +73,7 @@ const VoiceRoomView = ({ ai, userProfile, language, speak, onClose, t }: VoiceRo
       const errorText = "I'm not sure what to say, can you try again?";
       setTranscription(prev => [...prev, { sender: 'buddy', text: errorText }]);
       setAgentState('speaking');
-      speak(errorText, language, () => {
+      speak(errorText, activeAgent.voiceId, () => {
         setAgentState('listening');
       });
     }
@@ -210,9 +211,9 @@ const VoiceRoomView = ({ ai, userProfile, language, speak, onClose, t }: VoiceRo
         <aside className="vr-sidebar">
           <div className="vr-sidebar-section">
             <h4>{t('voiceRoom.agentConfiguration')}</h4>
-            <div className="vr-config-item"><span>SPEECH-TO-TEXT</span><span className="value">DEEPGRAM</span></div>
-            <div className="vr-config-item"><span>LLM</span><span className="value">GPT-4O-MINI</span></div>
-            <div className="vr-config-item"><span>TEXT-TO-SPEECH</span><span className="value">ELEVENLABS</span></div>
+            <div className="vr-config-item"><span>SPEECH-TO-TEXT</span><span className="value">Gemini</span></div>
+            <div className="vr-config-item"><span>LLM</span><span className="value">Gemini</span></div>
+            <div className="vr-config-item"><span>TEXT-TO-SPEECH</span><span className="value">Cartesia</span></div>
           </div>
           <div className="vr-sidebar-section">
             <h4>{t('voiceRoom.enhancements')}</h4>

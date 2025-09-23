@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
+
 // FIX: Add missing SpeechRecognition types for browsers that support it.
 // A proper solution would be adding a global .d.ts file.
 interface SpeechRecognition extends EventTarget {

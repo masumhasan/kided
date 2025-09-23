@@ -58,6 +58,9 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
+// WARNING: In a production application, this key should be handled on a secure backend server, not exposed in the frontend code.
+const CARTESIA_API_KEY = "sk_car_8wCTpQdsAjSjUxbxEt3Yy9";
+
 
 // --- Lazy-loaded Screen/View Components ---
 const WelcomeScreen = lazy(() => import('./components/WelcomeScreen/WelcomeScreen'));
@@ -148,15 +151,12 @@ const App = () => {
 
   // TTS State
   const [isTtsOn, setIsTtsOn] = useState(true);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   
   const handleToggleTts = () => {
     const newTtsState = !isTtsOn;
     setIsTtsOn(newTtsState);
-    if (!newTtsState && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      setIsAgentSpeaking(false);
-    }
+    // Note: We can't easily stop an in-flight fetch request or audio element,
+    // but new requests will be blocked by the isTtsOn check.
   };
 
   // Dark Mode
@@ -198,71 +198,62 @@ const App = () => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
   // --- Helper Functions ---
-  const speak = useCallback((text: string, lang: Language, onEndCallback: () => void) => {
-    if (!isTtsOn || !window.speechSynthesis || !text || !text.trim()) {
+  const speak = useCallback((text: string, voiceId: string, onEndCallback: () => void) => {
+    if (!isTtsOn || !text || !text.trim() || !voiceId) {
         if (onEndCallback) onEndCallback();
         return;
     }
+    
+    setIsAgentSpeaking(true);
 
     const onEnd = () => {
         setIsAgentSpeaking(false);
         if (onEndCallback) onEndCallback();
     };
 
-    if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
-    }
+    fetch("https://api.cartesia.ai/v1/text-to-speech", {
+      method: "POST",
+      headers: {
+        "Cartesia-Version": "2024-05-10",
+        "Content-Type": "application/json",
+        "X-API-Key": CARTESIA_API_KEY,
+      },
+      body: JSON.stringify({
+        model_id: "sonic-english",
+        transcript: text,
+        voice_id: voiceId,
+        output_format: "mp3"
+      }),
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.blob();
+    })
+    .then(blob => {
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      audio.play();
+      audio.onended = () => {
+        onEnd();
+        URL.revokeObjectURL(audioUrl);
+      };
+      audio.onerror = (e) => {
+        console.error("Audio playback error:", e);
+        onEnd();
+        URL.revokeObjectURL(audioUrl);
+      };
+    })
+    .catch(e => {
+      console.error("Cartesia API error:", e);
+      onEnd();
+    });
 
-    // Defer speech to prevent race conditions with cancel()
-    setTimeout(() => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        const targetLang = lang === 'bn' ? 'bn-IN' : 'en-US';
-        
-        let foundVoice = voices.find(voice => voice.lang === targetLang);
-        if (!foundVoice) {
-            // Fallback to a generic English voice if the specific one is not found
-            foundVoice = voices.find(voice => voice.lang.startsWith('en-'));
-        }
-        if (foundVoice) {
-            utterance.voice = foundVoice;
-        }
-
-        utterance.lang = targetLang;
-        utterance.onstart = () => setIsAgentSpeaking(true);
-        utterance.onend = onEnd;
-        utterance.onerror = (e) => {
-            console.error("Speech synthesis error", e);
-            onEnd();
-        };
-
-        window.speechSynthesis.speak(utterance);
-    }, 100);
-
-  }, [isTtsOn, voices]);
+  }, [isTtsOn]);
 
 
   // --- Effects ---
-   useEffect(() => {
-    const loadVoices = () => {
-        setVoices(window.speechSynthesis.getVoices());
-    };
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    loadVoices();
-
-    // This is a known workaround for some browsers (especially mobile) that can
-    // cause the speech synthesis to go silent after a period of inactivity.
-    const keepAliveInterval = setInterval(() => {
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.resume();
-      }
-    }, 5000);
-
-    return () => {
-        window.speechSynthesis.onvoiceschanged = null;
-        clearInterval(keepAliveInterval);
-    };
-  }, []);
-
    useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
@@ -404,26 +395,26 @@ const App = () => {
 
   useEffect(() => {
     if (screen === 'playground-live' && narrationText) {
-        speak(narrationText, language, () => {});
+        speak(narrationText, activeAgent.voiceId, () => {});
     }
-  }, [narrationText, screen, speak, language]);
+  }, [narrationText, screen, speak, activeAgent.voiceId]);
 
   useEffect(() => {
       if (screen === 'learning-camp-view' && learningCamp && campProgress) {
           if (campProgress.currentDay > learningCamp.duration) {
               if (campDialogueSpokenRef.current !== 'graduation') {
-                  speak(t('learningCamp.graduationMessage'), language, () => {});
+                  speak(t('learningCamp.graduationMessage'), AGENT_PROFILES.MarkRober.voiceId, () => {});
                   campDialogueSpokenRef.current = 'graduation';
               }
               return;
           }
           const currentActivity = learningCamp.days[campProgress.currentDay - 1]?.activities[campProgress.currentActivityIndex];
           if (currentActivity && currentActivity.dialogue && campDialogueSpokenRef.current !== currentActivity.dialogue) {
-              speak(currentActivity.dialogue, language, () => {});
+              speak(currentActivity.dialogue, AGENT_PROFILES.MarkRober.voiceId, () => {});
               campDialogueSpokenRef.current = currentActivity.dialogue;
           }
       }
-  }, [campProgress, learningCamp, screen, speak, language, t]);
+  }, [campProgress, learningCamp, screen, speak, t]);
 
     // --- Auth Handlers ---
   const handleSignIn = () => {
@@ -720,7 +711,7 @@ const App = () => {
         setLearningBuddyResponse(buddyResponse);
 
         const textToSpeak = `${buddyResponse.identification}. ${buddyResponse.funFacts.join('. ')}`;
-        speak(textToSpeak, language, () => {});
+        speak(textToSpeak, activeAgent.voiceId, () => {});
 
         const stickerResponse = await ai.models.generateImages({
           model: 'imagen-4.0-generate-001',
@@ -791,7 +782,7 @@ const App = () => {
             
             const welcomeText = topic ? `${t('quiz.customQuizTitle')} ${topic}` : t('quiz.ready');
             const firstQuestion = quizData[0].question;
-            speak(`${welcomeText}. ${firstQuestion}`, language, () => {});
+            speak(`${welcomeText}. ${firstQuestion}`, agent.voiceId, () => {});
 
             setScreen('result');
             setMedia({ type: 'image', data: '' });
@@ -810,7 +801,7 @@ const App = () => {
         setQuizAnswered(true);
 
         const feedbackText = isCorrect ? t('result.correct') : t('result.incorrect');
-        speak(feedbackText, language, () => {});
+        speak(feedbackText, activeAgent.voiceId, () => {});
 
         if (isCorrect) {
             setQuizSessionCorrectAnswers(prev => prev + 1);
@@ -825,12 +816,12 @@ const App = () => {
         if (newQuestionIndex < currentQuizSession.length) {
             setCurrentQuestionIndex(newQuestionIndex);
             setLearningBuddyResponse(prev => prev ? { ...prev, quiz: currentQuizSession[newQuestionIndex] } : null);
-            speak(currentQuizSession[newQuestionIndex].question, language, () => {});
+            speak(currentQuizSession[newQuestionIndex].question, activeAgent.voiceId, () => {});
         } else {
             setIsInQuizSession(false);
             const completedLevel = userProfile?.progress.quizLevel || 1;
             const summaryText = `${t('quizSummary.levelComplete').replace('{level}', String(completedLevel))} ${t('quizSummary.summary').replace('{correct}', String(quizSessionCorrectAnswers)).replace('{total}', String(currentQuizSession.length))}`;
-            speak(summaryText, language, () => {});
+            speak(summaryText, activeAgent.voiceId, () => {});
 
             updateUserProgress(prev => ({ ...prev, quizzesCompleted: prev.quizzesCompleted + 1, quizLevel: prev.quizLevel + 1 }));
             logActivity('quiz', `Completed a quiz with ${quizSessionCorrectAnswers}/${currentQuizSession.length} correct`, 75);
@@ -882,7 +873,7 @@ const App = () => {
             
             const newStorySegment: StorySegment = { ...storyData, backgroundImage: imageUrl };
             setStory(newStorySegment);
-            speak(storyData.storyText, language, () => {});
+            speak(storyData.storyText, agent.voiceId, () => {});
             
             const newChat = ai.chats.create({
                 model: 'gemini-2.5-flash',
@@ -919,7 +910,7 @@ const App = () => {
             
             const newStorySegment: StorySegment = { ...storyData, backgroundImage: imageUrl };
             setStory(newStorySegment);
-            speak(storyData.storyText, language, () => {});
+            speak(storyData.storyText, activeAgent.voiceId, () => {});
             logActivity('story', `Continued a story`, 15);
             setScreen('story');
 
@@ -931,7 +922,7 @@ const App = () => {
                 choices: ["Play Again", "Go Home"],
                 backgroundImage: story.backgroundImage
             });
-            speak(endText, language, () => {});
+            speak(endText, activeAgent.voiceId, () => {});
             setScreen('story');
         }
     };
@@ -971,7 +962,7 @@ const App = () => {
             
             const response = await newChat.sendMessage({ message: contentParts });
             setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: response.text }]);
-            speak(response.text, language, () => {});
+            speak(response.text, activeAgent.voiceId, () => {});
             logActivity('homework' as any, `Got help with ${homeworkMode} homework`, 25);
         } catch (e) {
             console.error("Homework generation error:", e);
@@ -988,12 +979,12 @@ const App = () => {
         try {
             const response = await homeworkChat.sendMessage({ message });
             setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: response.text }]);
-            speak(response.text, language, () => {});
+            speak(response.text, activeAgent.voiceId, () => {});
         } catch (e) {
             console.error("Followup error:", e);
             const errorText = "Oops, something went wrong. Can you ask that again?";
             setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: errorText }]);
-            speak(errorText, language, () => {});
+            speak(errorText, activeAgent.voiceId, () => {});
         } finally {
             setIsHomeworkLoading(false);
         }
@@ -1011,19 +1002,19 @@ const App = () => {
     };
 
     const handleSendVoiceAssistantMessage = async (message: string) => {
-        if (!chat) return;
+        if (!chat || !selectedAgent) return;
         setVoiceAssistantHistory(prev => [...prev, { sender: 'user', text: message }]);
         setAgentAvatarState('thinking');
         try {
             const response = await chat.sendMessage({ message });
             setAgentAvatarState('speaking');
-            speak(response.text, language, () => setAgentAvatarState('idle'));
+            speak(response.text, selectedAgent.voiceId, () => setAgentAvatarState('idle'));
             setVoiceAssistantHistory(prev => [...prev, { sender: 'buddy', text: response.text }]);
         } catch (e) {
             console.error("Voice assistant error:", e);
             const errorMsg = "I'm sorry, I'm having a little trouble thinking right now.";
             setAgentAvatarState('speaking');
-            speak(errorMsg, language, () => setAgentAvatarState('idle'));
+            speak(errorMsg, selectedAgent.voiceId, () => setAgentAvatarState('idle'));
             setVoiceAssistantHistory(prev => [...prev, { sender: 'buddy', text: errorMsg }]);
         }
     };
@@ -1056,7 +1047,7 @@ const App = () => {
           id: `hunt_${Date.now()}`, title: huntData.title, clues: huntData.clues.map((c: any) => ({ ...c, found: false })), currentClueIndex: 0, isComplete: false,
         };
         setTreasureHunt(newHunt);
-        speak(newHunt.clues[0].clueText, language, () => {});
+        speak(newHunt.clues[0].clueText, agent.voiceId, () => {});
         setScreen('treasure-hunt-active');
       } catch (e) {
         console.error("Treasure hunt generation error:", e);
@@ -1083,13 +1074,13 @@ const App = () => {
           logActivity('treasure-hunt', `Found clue for ${currentClue.targetDescription}`, 50);
           setTreasureHuntProgressUpdate({ current: newClueIndex, total: treasureHunt.clues.length });
           
-          speak(feedback, language, () => {
+          speak(feedback, activeAgent.voiceId, () => {
               setTimeout(() => {
                   if (isComplete) {
                       logActivity('treasure-hunt', `Completed a treasure hunt!`, 150);
-                      speak(t('treasureHunt.completeMessage'), language, () => {});
+                      speak(t('treasureHunt.completeMessage'), activeAgent.voiceId, () => {});
                   } else {
-                      speak(treasureHunt.clues[newClueIndex].clueText, language, () => {});
+                      speak(treasureHunt.clues[newClueIndex].clueText, activeAgent.voiceId, () => {});
                   }
                   setTreasureHuntProgressUpdate(null);
               }, isComplete ? 500 : 2500);
@@ -1100,13 +1091,13 @@ const App = () => {
            const idResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: { parts: [{ text: identificationPrompt }, imagePart] } });
            const feedback = t('treasureHunt.failure').replace('{object}', idResponse.text);
            setTreasureHuntFeedback(feedback);
-           speak(feedback, language, () => {});
+           speak(feedback, activeAgent.voiceId, () => {});
         }
       } catch (e) {
         console.error("Treasure check error:", e);
         const errorText = "I had a little trouble seeing that. Can you try again?";
         setTreasureHuntFeedback(errorText);
-        speak(errorText, language, () => {});
+        speak(errorText, activeAgent.voiceId, () => {});
       } finally {
         setScreen('treasure-hunt-active');
       }
