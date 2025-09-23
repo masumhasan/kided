@@ -1,7 +1,7 @@
 import React from 'react';
 import './TreasureHuntProgress.css';
 
-// FIX: Changed to a side-effect import to load global JSX definitions for custom elements.
+// FIX: Import types to load global JSX definitions for the 'lottie-player' custom element.
 import '../../lib/types';
 
 type TreasureHuntProgressProps = {

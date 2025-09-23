@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 declare global {
@@ -105,6 +106,13 @@ export type ActivityLog = {
     xpEarned: number;
 };
 
+export type Badge = {
+    id: string;
+    name: string;
+    earnedOn: string;
+    iconUrl?: string;
+};
+
 export type UserProfile = {
     uid: string;
     id: string;
@@ -113,6 +121,7 @@ export type UserProfile = {
     familyMembers: FamilyMember[];
     progress: UserProgress;
     activityLog: ActivityLog[];
+    badges: Badge[];
     createdAt: string;
     updatedAt: string;
 };
