@@ -1,0 +1,19 @@
+.roundtable-gate-view {
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    min-height: calc(100vh - 160px); 
+    padding: 1rem; 
+}
+.roundtable-gate-view .card svg { 
+    width: 64px; 
+    height: 64px; 
+    color: var(--action-cyan); 
+}
+.roundtable-gate-view .card p {
+    margin-bottom: 0;
+}
+.roundtable-gate-view textarea.custom-input {
+    min-height: 80px;
+    resize: vertical;
+}

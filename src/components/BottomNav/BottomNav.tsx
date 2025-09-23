@@ -1,7 +1,6 @@
 import React from 'react';
 import { ActiveTab } from '../../lib/types';
-// FIX: Imported ProfileIcon to use for the Parent Dashboard navigation item.
-import { HomeIcon, ObjectsIcon, StoryIcon, QuizIcon, MenuIcon, LightbulbIcon, MicIcon, RewardsIcon, EyeIcon, TreasureHuntIcon, ScienceIcon, ProfileIcon } from '../Icons/Icons';
+import { HomeIcon, ObjectsIcon, StoryIcon, QuizIcon, MenuIcon, LightbulbIcon, MicIcon, RewardsIcon, EyeIcon, TreasureHuntIcon, ScienceIcon, ProfileIcon, AgentIcon } from '../Icons/Icons';
 import './BottomNav.css';
 
 type BottomNavProps = {
@@ -19,8 +18,7 @@ export const BottomNav = ({ activeTab, onNav, t }: BottomNavProps) => {
     "Quiz",
     "Menu",
   ];
-  // FIX: Added 'Parent Dashboard' to the Exclude utility type to prevent a type error, as it's not part of the visible bottom navigation.
-  const itemLabels: { [key in Exclude<ActiveTab, 'Chat' | 'Rewards' | 'Story' | 'Homework' | 'Playground' | 'Learning Camp' | 'Parent Dashboard'>]: string } = {
+  const itemLabels: { [key in Exclude<ActiveTab, 'Chat' | 'Rewards' | 'Story' | 'Homework' | 'Playground' | 'Learning Camp' | 'Parent Dashboard' | 'VoiceRoom'>]: string } = {
     Home: t('nav.home'),
     "Object Scan": t('nav.objectScan'),
     Quiz: t('nav.quiz'),
@@ -28,7 +26,6 @@ export const BottomNav = ({ activeTab, onNav, t }: BottomNavProps) => {
     "Voice Assistant": t('nav.voiceAssistant'),
     "Treasure Hunt": t('nav.treasureHunt'),
   };
-  // FIX: Added 'Parent Dashboard' with a corresponding icon to the icons map to satisfy the ActiveTab type.
   const icons: { [key in ActiveTab]: JSX.Element } = {
     Home: <HomeIcon />,
     "Object Scan": <ObjectsIcon />,
@@ -42,6 +39,7 @@ export const BottomNav = ({ activeTab, onNav, t }: BottomNavProps) => {
     "Treasure Hunt": <TreasureHuntIcon />,
     "Learning Camp": <ScienceIcon />,
     "Parent Dashboard": <ProfileIcon />,
+    VoiceRoom: <AgentIcon />,
   };
   return (
     <nav className="bottom-nav">

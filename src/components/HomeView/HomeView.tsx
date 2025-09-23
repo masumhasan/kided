@@ -1,6 +1,6 @@
 import React from 'react';
 import { UserProfile, ActiveTab } from '../../lib/types';
-import { StarIcon, ObjectsIcon, StoryIcon, QuizIcon, RewardsIcon, LightbulbIcon, MicIcon, EyeIcon, XPIcon, TreasureHuntIcon, ScienceIcon } from '../Icons/Icons';
+import { StarIcon, ObjectsIcon, StoryIcon, QuizIcon, RewardsIcon, LightbulbIcon, MicIcon, EyeIcon, XPIcon, TreasureHuntIcon, ScienceIcon, AgentIcon } from '../Icons/Icons';
 import './HomeView.css';
 
 type HomeViewProps = {
@@ -104,6 +104,15 @@ const HomeView = ({ userProfile, onNavigate, t }: HomeViewProps) => {
             <div>
               <h3>{t('home.homework')}</h3>
               <p>{t('home.homeworkDesc')}</p>
+            </div>
+          </div>
+          <div className="feature-card" onClick={() => onNavigate("VoiceRoom")}>
+            <div className="feature-icon-wrapper voiceroom">
+              <AgentIcon />
+            </div>
+            <div>
+              <h3>{t('home.voiceRoom')}</h3>
+              <p>{t('home.voiceRoomDesc')}</p>
             </div>
           </div>
           <div className="feature-card" onClick={() => onNavigate("Quiz")}>

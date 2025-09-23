@@ -34,7 +34,7 @@ export const ObjectsIcon = () => (
 );
 export const StoryIcon = () => (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    xmlns="http://www.w.org/2000/svg"
     width="24"
     height="24"
     viewBox="0 0 24"
@@ -50,7 +50,7 @@ export const StoryIcon = () => (
 );
 export const ChatIcon = () => (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    xmlns="http://www.w.org/2000/svg"
     width="24"
     height="24"
     viewBox="0 0 24"
@@ -67,7 +67,7 @@ export const ChatIcon = () => (
 );
 export const QuizIcon = () => (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    xmlns="http://www.w.org/2000/svg"
     width="24"
     height="24"
     viewBox="0 0 24"
@@ -110,7 +110,7 @@ export const MenuIcon = () => (
 );
 export const BackIcon = () => (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    xmlns="http://www.w.org/2000/svg"
     width="24"
     height="24"
     viewBox="0 0 24"
@@ -141,27 +141,27 @@ export const MicIcon = ({ size = 24 }: { size?: number }) => (
     <line x1="12" y1="19" x2="12" y2="23"></line>
   </svg>
 );
+export const MicOnIcon = ({ size = 24 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"></path>
+    <path d="M17 11a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"></path>
+  </svg>
+);
 export const MicOffIcon = ({ size = 24 }: { size?: number }) => (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    xmlns="http://www.w.org/2000/svg"
     width={size}
     height={size}
     viewBox="0 0 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    fill="currentColor"
   >
-    <line x1="1" y1="1" x2="23" y2="23"></line>
-    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
-    <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
-    <line x1="12" y1="19" x2="12" y2="23"></line>
+    <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1.2-9.1c0-.66.54-1.2 1.2-1.2.66 0 1.2.54 1.2 1.2l-.01 6.2c0 .66-.53 1.2-1.19 1.2s-1.2-.54-1.2-1.2V4.9zm6.5 6.2c0 3.03-2.47 5.5-5.5 5.5S6.3 14.13 6.3 11.1H4.8c0 3.53 2.61 6.43 6 6.92V22h2.4v-4.08c3.39-.49 6-3.39 6-6.92h-1.5z"></path>
+    <path d="M2.77 2.77L1.5 4.05l20 20 1.27-1.27-20-20z"></path>
   </svg>
 );
 export const StarIcon = ({ filled = false }) => (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    xmlns="http://www.w.org/2000/svg"
     width="24"
     height="24"
     viewBox="0 0 24"
@@ -199,7 +199,7 @@ export const SunIcon = ({ size = 24 }: { size?: number }) => (
 );
 export const MoonIcon = ({ size = 24 }: { size?: number }) => (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    xmlns="http://www.w.org/2000/svg"
     width={size}
     height={size}
     viewBox="0 0 24"
@@ -324,5 +324,19 @@ export const CloseIcon = () => (
 export const MinimizeIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+);
+
+export const SettingsIcon = ({ size = 24 }: { size?: number }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="5" r="2"></circle>
+        <circle cx="12" cy="12" r="2"></circle>
+        <circle cx="12" cy="19" r="2"></circle>
+    </svg>
+);
+
+export const HangUpIcon = ({ size = 24 }: { size?: number }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 9c-1.6 0-3.15.25-4.62.72v3.1c0 .47-.29.9-.73 1.05a7.36 7.36 0 0 0 0 2.26c.44.15.73.58.73 1.05v3.1c1.47.47 3.02.72 4.62.72s3.15-.25 4.62-.72v-3.1c0-.47.29-.9.73-1.05a7.36 7.36 0 0 0 0-2.26c-.44-.15-.73-.58-.73-1.05v-3.1C15.15 9.25 13.6 9 12 9z" transform="rotate(-135 12 12)"></path>
     </svg>
 );

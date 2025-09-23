@@ -210,26 +210,3 @@ body.dark-mode .btn:disabled, body.dark-mode .custom-input-group button:disabled
         width: 70%;
     }
 }
-
-.result-view {
-  width: 100%; /* Default width for mobile */
-  margin-left: auto;
-  margin-right: auto;
-}
-
-@media (min-width: 768px) { /* Adjust breakpoint as needed */
-  .result-view {
-        margin: 22px;
-        margin-left: auto;
-        margin-right: auto;
-        padding: 20px;
-        background-color: #00000033;
-        align-content: center;
-        width: 60%;
-        position: absolute;
-        top: 50%;
-        border-radius: 15px;
-        left: 50%;
-        transform: translate(-50%, -50%);
-  }
-}

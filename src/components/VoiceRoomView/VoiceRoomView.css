@@ -1,0 +1,193 @@
+.voice-room-view {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: #121212;
+    color: #E0E0E0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* --- Top Agent Selector --- */
+.vr-agent-selector {
+    display: flex;
+    padding: 0.75rem 1rem;
+    gap: 1rem;
+    background-color: rgba(30, 30, 30, 0.5);
+    backdrop-filter: blur(5px);
+    border-bottom: 1px solid #2A2A2A;
+    z-index: 10;
+    overflow-x: auto;
+}
+.vr-agent-card {
+    padding: 0.5rem 1rem;
+    border: 1px solid #444;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+.vr-agent-card.selected {
+    background-color: #2A2A2A;
+    border-color: #00aeef;
+}
+.vr-agent-card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+}
+.vr-agent-card p {
+    font-size: 0.8rem;
+    color: #BDBDBD;
+}
+
+/* --- Main Content --- */
+.vr-main {
+    flex-grow: 1;
+    position: relative;
+    display: flex;
+}
+.vr-video-container {
+    flex-grow: 1;
+    position: relative;
+    background-color: #000;
+}
+.vr-video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* --- Listening Orb --- */
+.vr-orb-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    z-index: 5;
+}
+.vr-orb {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 20px #fff, 0 0 40px #00aeef, 0 0 60px #00aeef;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.vr-orb.listening {
+    animation: pulse 2s infinite ease-in-out;
+}
+.vr-orb.thinking {
+    animation: spin 1.5s linear infinite;
+}
+.vr-orb.speaking {
+    transform: scale(1.1);
+}
+@keyframes pulse {
+    0%, 100% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1.05); opacity: 1; }
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.vr-status-text {
+    background-color: rgba(0,0,0,0.5);
+    padding: 0.25rem 1rem;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+
+/* --- Right Sidebar --- */
+.vr-sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    background-color: #1E1E1E;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    overflow-y: auto;
+}
+.vr-sidebar-section {
+    font-size: 0.8rem;
+}
+.vr-sidebar-section h4 {
+    font-size: 0.75rem;
+    color: #BDBDBD;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid #444;
+    padding-bottom: 0.5rem;
+}
+.vr-config-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    color: #BDBDBD;
+}
+.vr-config-item .value {
+    color: #00aeef;
+    font-weight: 600;
+}
+.vr-transcription {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+.vr-transcription p {
+    line-height: 1.6;
+}
+.vr-transcription p strong {
+    color: #00c6ff;
+}
+
+/* --- Bottom Controls --- */
+.vr-controls {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 1rem;
+    background-color: rgba(30, 30, 30, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 0.75rem 1.5rem;
+    border-radius: 50px;
+    z-index: 10;
+}
+.vr-control-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    transition: background-color 0.2s;
+}
+.vr-control-btn:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+.vr-control-btn.hangup {
+    background-color: #ED1C24;
+}
+.vr-control-btn.hangup:hover {
+    background-color: #ff4d52;
+}
+
+/* Hide sidebar on small screens */
+@media (max-width: 768px) {
+    .vr-sidebar {
+        display: none;
+    }
+}

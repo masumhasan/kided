@@ -6,7 +6,8 @@ main {
   min-height: 100vh;
 }
 
-.app-layout.screen-voice-assistant main {
+.app-layout.screen-voice-assistant main,
+.app-layout.screen-voice-room main {
     padding: 0;
     height: 100vh;
     overflow: hidden;

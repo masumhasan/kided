@@ -85,6 +85,7 @@
 .feature-icon-wrapper.voice-assistant { background-color: #386fc1; }
 .feature-icon-wrapper.playground { background-color: var(--playground-bg); }
 .feature-icon-wrapper.camp { background: linear-gradient(45deg, #f5af19, #f12711); }
+.feature-icon-wrapper.voiceroom { background: linear-gradient(45deg, #0072ff, #00c6ff); }
 
 
 body.dark-mode .greeting h2 { color: var(--dm-text-primary); }

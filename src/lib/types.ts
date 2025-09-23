@@ -1,10 +1,17 @@
+// FIX: Import react to allow module augmentation to succeed. This resolves numerous
+// "Cannot find namespace 'JSX'" errors throughout the application.
+import 'react';
 
-import React from 'react';
-
-declare global {
+// FIX: By augmenting the React module, we add 'lottie-player' to JSX.IntrinsicElements
+// without overwriting all the standard HTML element types. This fixes numerous
+// "Property 'div' does not exist" and "no exported member 'Element'" errors.
+declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
-      'lottie-player': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+      'lottie-player': React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      > & {
         src: string;
         background?: string;
         speed?: string;
@@ -41,9 +48,10 @@ export type Screen =
   | "parent-dashboard"
   | "about"
   | "terms"
-  | "privacy";
+  | "privacy"
+  | "voice-room";
   
-export type ActiveTab = "Home" | "Object Scan" | "Story" | "Quiz" | "Rewards" | "Menu" | "Homework" | "Voice Assistant" | "Playground" | "Treasure Hunt" | "Learning Camp" | "Parent Dashboard";
+export type ActiveTab = "Home" | "Object Scan" | "Story" | "Quiz" | "Rewards" | "Menu" | "Homework" | "Voice Assistant" | "Playground" | "Treasure Hunt" | "Learning Camp" | "Parent Dashboard" | "VoiceRoom";
 export type MediaType = 'image' | 'video' | 'audio';
 
 // Language
@@ -128,7 +136,7 @@ export type UserProfile = {
 
 // Feature-specific types
 export type HomeworkMode = 'math' | 'science' | 'essay' | 'general';
-export type AgentAvatarState = 'idle' | 'thinking' | 'speaking';
+export type AgentAvatarState = 'idle' | 'thinking' | 'speaking' | 'listening';
 
 export type AgentName = "Adam" | "MarkRober" | "MrBeast" | "Eva";
 
@@ -152,6 +160,21 @@ export type TreasureHunt = {
     currentClueIndex: number;
     isComplete: boolean;
 };
+
+// FIX: Add missing Roundtable types for RoundtableView component.
+// Roundtable / VoiceRoom types
+export type RoundtableAgentName = "Adam" | "MarkRober" | "Eva";
+
+export type RoundtableTurn = {
+    agentName: RoundtableAgentName;
+    dialogue: string;
+};
+
+export type RoundtableResponse = {
+    discussion: RoundtableTurn[];
+    finalAnswer?: string;
+};
+
 
 // Learning Camp Types
 export type CampActivityType = 'trail' | 'experiment' | 'story' | 'wrap-up';

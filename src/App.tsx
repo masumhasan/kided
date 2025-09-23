@@ -80,6 +80,7 @@ const VoiceAssistantGate = lazy(() => import('./components/VoiceAssistantGate/Vo
 const VoiceAssistantView = lazy(() => import('./components/VoiceAssistantView/VoiceAssistantView'));
 const LearningCampGate = lazy(() => import('./components/LearningCampGate/LearningCampGate'));
 const LearningCampView = lazy(() => import('./components/LearningCampView/LearningCampView'));
+const VoiceRoomView = lazy(() => import('./components/VoiceRoomView/VoiceRoomView'));
 
 
 // --- Main App Component ---
@@ -145,9 +146,9 @@ const App = () => {
   const [parentTips, setParentTips] = useState('');
   const [isParentTipsLoading, setIsParentTipsLoading] = useState(false);
 
-
   // TTS State
   const [isTtsOn, setIsTtsOn] = useState(true);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   
   const handleToggleTts = () => {
     const newTtsState = !isTtsOn;
@@ -181,6 +182,7 @@ const App = () => {
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
+  const campDialogueSpokenRef = useRef('');
   
   const t = useCallback((key: string): string => {
         const keys = key.split('.');
@@ -197,29 +199,70 @@ const App = () => {
 
   // --- Helper Functions ---
   const speak = useCallback((text: string, lang: Language, onEndCallback: () => void) => {
-    if (!isTtsOn || !window.speechSynthesis) {
-        onEndCallback();
+    if (!isTtsOn || !window.speechSynthesis || !text || !text.trim()) {
+        if (onEndCallback) onEndCallback();
         return;
     }
+
     const onEnd = () => {
         setIsAgentSpeaking(false);
-        onEndCallback();
+        if (onEndCallback) onEndCallback();
     };
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang === 'bn' ? 'bn-IN' : 'en-US';
-    utterance.onstart = () => setIsAgentSpeaking(true);
-    utterance.onend = onEnd;
-    utterance.onerror = (e) => {
-        console.error("Speech synthesis error", e);
-        onEnd();
-    };
-    window.speechSynthesis.speak(utterance);
-  }, [isTtsOn]);
+    if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+    }
+
+    // Defer speech to prevent race conditions with cancel()
+    setTimeout(() => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        const targetLang = lang === 'bn' ? 'bn-IN' : 'en-US';
+        
+        let foundVoice = voices.find(voice => voice.lang === targetLang);
+        if (!foundVoice) {
+            // Fallback to a generic English voice if the specific one is not found
+            foundVoice = voices.find(voice => voice.lang.startsWith('en-'));
+        }
+        if (foundVoice) {
+            utterance.voice = foundVoice;
+        }
+
+        utterance.lang = targetLang;
+        utterance.onstart = () => setIsAgentSpeaking(true);
+        utterance.onend = onEnd;
+        utterance.onerror = (e) => {
+            console.error("Speech synthesis error", e);
+            onEnd();
+        };
+
+        window.speechSynthesis.speak(utterance);
+    }, 100);
+
+  }, [isTtsOn, voices]);
 
 
   // --- Effects ---
+   useEffect(() => {
+    const loadVoices = () => {
+        setVoices(window.speechSynthesis.getVoices());
+    };
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+
+    // This is a known workaround for some browsers (especially mobile) that can
+    // cause the speech synthesis to go silent after a period of inactivity.
+    const keepAliveInterval = setInterval(() => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.resume();
+      }
+    }, 5000);
+
+    return () => {
+        window.speechSynthesis.onvoiceschanged = null;
+        clearInterval(keepAliveInterval);
+    };
+  }, []);
+
    useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
@@ -358,6 +401,29 @@ const App = () => {
           if (intervalId) clearInterval(intervalId);
       };
   }, [screen, language, userProfile, activeAgent, ai.models]);
+
+  useEffect(() => {
+    if (screen === 'playground-live' && narrationText) {
+        speak(narrationText, language, () => {});
+    }
+  }, [narrationText, screen, speak, language]);
+
+  useEffect(() => {
+      if (screen === 'learning-camp-view' && learningCamp && campProgress) {
+          if (campProgress.currentDay > learningCamp.duration) {
+              if (campDialogueSpokenRef.current !== 'graduation') {
+                  speak(t('learningCamp.graduationMessage'), language, () => {});
+                  campDialogueSpokenRef.current = 'graduation';
+              }
+              return;
+          }
+          const currentActivity = learningCamp.days[campProgress.currentDay - 1]?.activities[campProgress.currentActivityIndex];
+          if (currentActivity && currentActivity.dialogue && campDialogueSpokenRef.current !== currentActivity.dialogue) {
+              speak(currentActivity.dialogue, language, () => {});
+              campDialogueSpokenRef.current = currentActivity.dialogue;
+          }
+      }
+  }, [campProgress, learningCamp, screen, speak, language, t]);
 
     // --- Auth Handlers ---
   const handleSignIn = () => {
@@ -563,6 +629,7 @@ const App = () => {
       case "Story": setScreen("story"); break;
       case "Homework": setScreen("homework"); break;
       case "Parent Dashboard": setScreen("parent-dashboard"); break;
+      case "VoiceRoom": setScreen("voice-room"); break;
     }
     setIsSidebarOpen(false);
   };
@@ -652,6 +719,9 @@ const App = () => {
         const buddyResponse: LearningBuddyResponse = JSON.parse(response.text);
         setLearningBuddyResponse(buddyResponse);
 
+        const textToSpeak = `${buddyResponse.identification}. ${buddyResponse.funFacts.join('. ')}`;
+        speak(textToSpeak, language, () => {});
+
         const stickerResponse = await ai.models.generateImages({
           model: 'imagen-4.0-generate-001',
           prompt: `A cute, friendly cartoon sticker of a ${buddyResponse.identification}, simple, with a thick white border, vibrant colors.`,
@@ -718,6 +788,11 @@ const App = () => {
             setLearningBuddyResponse({
                 identification: topic || t('header.quizTime'), funFacts: [], quiz: quizData[0], encouragement: ''
             });
+            
+            const welcomeText = topic ? `${t('quiz.customQuizTitle')} ${topic}` : t('quiz.ready');
+            const firstQuestion = quizData[0].question;
+            speak(`${welcomeText}. ${firstQuestion}`, language, () => {});
+
             setScreen('result');
             setMedia({ type: 'image', data: '' });
         } catch (e) {
@@ -733,6 +808,10 @@ const App = () => {
         const isCorrect = selectedIndex === currentQuestion.correctAnswerIndex;
         setLastAnswerCorrect(isCorrect);
         setQuizAnswered(true);
+
+        const feedbackText = isCorrect ? t('result.correct') : t('result.incorrect');
+        speak(feedbackText, language, () => {});
+
         if (isCorrect) {
             setQuizSessionCorrectAnswers(prev => prev + 1);
             updateUserProgress(prev => ({...prev, stars: prev.stars + 2}));
@@ -746,8 +825,13 @@ const App = () => {
         if (newQuestionIndex < currentQuizSession.length) {
             setCurrentQuestionIndex(newQuestionIndex);
             setLearningBuddyResponse(prev => prev ? { ...prev, quiz: currentQuizSession[newQuestionIndex] } : null);
+            speak(currentQuizSession[newQuestionIndex].question, language, () => {});
         } else {
             setIsInQuizSession(false);
+            const completedLevel = userProfile?.progress.quizLevel || 1;
+            const summaryText = `${t('quizSummary.levelComplete').replace('{level}', String(completedLevel))} ${t('quizSummary.summary').replace('{correct}', String(quizSessionCorrectAnswers)).replace('{total}', String(currentQuizSession.length))}`;
+            speak(summaryText, language, () => {});
+
             updateUserProgress(prev => ({ ...prev, quizzesCompleted: prev.quizzesCompleted + 1, quizLevel: prev.quizLevel + 1 }));
             logActivity('quiz', `Completed a quiz with ${quizSessionCorrectAnswers}/${currentQuizSession.length} correct`, 75);
             setQuizHistory(prev => [...prev, ...currentQuizSession.map(q => q.question)].slice(-50));
@@ -798,6 +882,7 @@ const App = () => {
             
             const newStorySegment: StorySegment = { ...storyData, backgroundImage: imageUrl };
             setStory(newStorySegment);
+            speak(storyData.storyText, language, () => {});
             
             const newChat = ai.chats.create({
                 model: 'gemini-2.5-flash',
@@ -834,16 +919,19 @@ const App = () => {
             
             const newStorySegment: StorySegment = { ...storyData, backgroundImage: imageUrl };
             setStory(newStorySegment);
+            speak(storyData.storyText, language, () => {});
             logActivity('story', `Continued a story`, 15);
             setScreen('story');
 
         } catch (e) {
             console.error("Story continuation error:", e);
+            const endText = "And they all lived happily ever after! The End.";
             setStory({
-                storyText: "And they all lived happily ever after! The End.",
+                storyText: endText,
                 choices: ["Play Again", "Go Home"],
                 backgroundImage: story.backgroundImage
             });
+            speak(endText, language, () => {});
             setScreen('story');
         }
     };
@@ -867,6 +955,7 @@ const App = () => {
 
             if (input.text) {
                 promptText += `\n\nHere is their question: "${input.text}"`;
+                setHomeworkChatHistory(prev => [...prev, { sender: 'user', text: input.text! }]);
             }
             contentParts.push({ text: promptText });
             
@@ -881,7 +970,8 @@ const App = () => {
             setHomeworkChat(newChat);
             
             const response = await newChat.sendMessage({ message: contentParts });
-            setHomeworkChatHistory([{ sender: 'buddy', text: response.text }]);
+            setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: response.text }]);
+            speak(response.text, language, () => {});
             logActivity('homework' as any, `Got help with ${homeworkMode} homework`, 25);
         } catch (e) {
             console.error("Homework generation error:", e);
@@ -898,9 +988,12 @@ const App = () => {
         try {
             const response = await homeworkChat.sendMessage({ message });
             setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: response.text }]);
+            speak(response.text, language, () => {});
         } catch (e) {
             console.error("Followup error:", e);
-            setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: "Oops, something went wrong. Can you ask that again?" }]);
+            const errorText = "Oops, something went wrong. Can you ask that again?";
+            setHomeworkChatHistory(prev => [...prev, { sender: 'buddy', text: errorText }]);
+            speak(errorText, language, () => {});
         } finally {
             setIsHomeworkLoading(false);
         }
@@ -963,6 +1056,7 @@ const App = () => {
           id: `hunt_${Date.now()}`, title: huntData.title, clues: huntData.clues.map((c: any) => ({ ...c, found: false })), currentClueIndex: 0, isComplete: false,
         };
         setTreasureHunt(newHunt);
+        speak(newHunt.clues[0].clueText, language, () => {});
         setScreen('treasure-hunt-active');
       } catch (e) {
         console.error("Treasure hunt generation error:", e);
@@ -981,24 +1075,38 @@ const App = () => {
         const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: { parts: [{ text: prompt }, imagePart] } });
         const isMatch = response.text.toLowerCase().includes('yes');
         if (isMatch) {
-          setTreasureHuntFeedback(`You found it! Great job!`);
+          const feedback = t('treasureHunt.success');
+          setTreasureHuntFeedback(feedback);
           const newClueIndex = treasureHunt.currentClueIndex + 1;
           const isComplete = newClueIndex >= treasureHunt.clues.length;
           setTreasureHunt(prev => prev ? ({ ...prev, currentClueIndex: newClueIndex, isComplete: isComplete }) : null);
           logActivity('treasure-hunt', `Found clue for ${currentClue.targetDescription}`, 50);
           setTreasureHuntProgressUpdate({ current: newClueIndex, total: treasureHunt.clues.length });
-          setTimeout(() => setTreasureHuntProgressUpdate(null), 2500);
-          if(isComplete) {
-             logActivity('treasure-hunt', `Completed a treasure hunt!`, 150);
-          }
+          
+          speak(feedback, language, () => {
+              setTimeout(() => {
+                  if (isComplete) {
+                      logActivity('treasure-hunt', `Completed a treasure hunt!`, 150);
+                      speak(t('treasureHunt.completeMessage'), language, () => {});
+                  } else {
+                      speak(treasureHunt.clues[newClueIndex].clueText, language, () => {});
+                  }
+                  setTreasureHuntProgressUpdate(null);
+              }, isComplete ? 500 : 2500);
+          });
+
         } else {
            const identificationPrompt = `Briefly identify the main object in this image in one or two words.`;
            const idResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: { parts: [{ text: identificationPrompt }, imagePart] } });
-          setTreasureHuntFeedback(`Not quite! That looks like a ${idResponse.text}. Let's keep looking!`);
+           const feedback = t('treasureHunt.failure').replace('{object}', idResponse.text);
+           setTreasureHuntFeedback(feedback);
+           speak(feedback, language, () => {});
         }
       } catch (e) {
         console.error("Treasure check error:", e);
-        setTreasureHuntFeedback("I had a little trouble seeing that. Can you try again?");
+        const errorText = "I had a little trouble seeing that. Can you try again?";
+        setTreasureHuntFeedback(errorText);
+        speak(errorText, language, () => {});
       } finally {
         setScreen('treasure-hunt-active');
       }
@@ -1007,6 +1115,7 @@ const App = () => {
     const handleStartLearningCamp = async (duration: number) => {
         if (requireProfile()) return;
         setIsCampLoading(true);
+        campDialogueSpokenRef.current = '';
         setScreen('learning-camp-view');
         setActiveTab('Learning Camp');
         try {
@@ -1151,11 +1260,12 @@ const App = () => {
       case "terms": return <StaticPages.TermsScreen t={t} />;
       case "privacy": return <StaticPages.PrivacyScreen t={t} />;
       case "parent-dashboard": return <StaticPages.ParentDashboardView profile={userProfile} tips={parentTips} isLoadingTips={isParentTipsLoading} t={t} />;
+      case "voice-room": return <VoiceRoomView ai={ai} userProfile={userProfile} language={language} speak={speak} onClose={handleCloseFeature} t={t} />;
       default: return <HomeView userProfile={userProfile} onNavigate={handleNav} t={t} />;
     }
   };
   
-  const showHeader = !['welcome', 'loading', 'voice-assistant', 'playground-live'].includes(screen);
+  const showHeader = !['welcome', 'loading', 'voice-assistant', 'playground-live', 'voice-room'].includes(screen);
   const showBottomNav = ['home'].includes(screen);
   const showBackButton = !['welcome', 'loading', 'home', 'voice-assistant', 'playground-live'].includes(screen);
   
@@ -1171,6 +1281,7 @@ const App = () => {
     profile: ['profile'],
     treasureHunt: ['treasure-hunt-gate', 'treasure-hunt-active'],
     learningCamp: ['learning-camp-gate', 'learning-camp-view'],
+    voiceRoom: ['voice-room'],
     about: ['about'],
     terms: ['terms'],
     privacy: ['privacy'],
