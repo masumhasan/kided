@@ -1,28 +1,21 @@
 import React, { useEffect, useRef } from 'react';
 import { AgentProfile, AgentAvatarState, ChatMessage } from '../../lib/types';
-import { BackIcon, VideoOnIcon, VideoOffIcon, SendIcon } from '../Icons/Icons';
+import { BackIcon, SendIcon } from '../Icons/Icons';
 import './VoiceAssistantView.css';
 
 type ChatHeaderProps = {
     agent: AgentProfile;
     onBack: () => void;
-    isCameraEnabled: boolean;
-    setIsCameraEnabled: (enabled: boolean) => void;
     t: (key: string) => string;
 }
 
-const ChatHeader = ({ agent, onBack, isCameraEnabled, setIsCameraEnabled, t }: ChatHeaderProps) => (
+const ChatHeader = ({ agent, onBack, t }: ChatHeaderProps) => (
     <header className="va-header">
         <button onClick={onBack} className="va-back-btn" aria-label="Go back">
             <BackIcon />
         </button>
         <div className="va-header-info">
             <h2>{t(`voiceAssistant.${agent.name}`)}</h2>
-        </div>
-        <div className="va-header-controls">
-            <button className="va-header-btn" onClick={() => setIsCameraEnabled(!isCameraEnabled)}>
-                {isCameraEnabled ? <VideoOnIcon /> : <VideoOffIcon />}
-            </button>
         </div>
     </header>
 );
@@ -73,8 +66,6 @@ const VoiceAssistantView = ({
             <ChatHeader 
                 agent={agent} 
                 onBack={onBack}
-                isCameraEnabled={isCameraEnabled}
-                setIsCameraEnabled={setIsCameraEnabled}
                 t={t}
             />
             

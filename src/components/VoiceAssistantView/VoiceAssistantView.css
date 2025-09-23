@@ -29,18 +29,6 @@
     font-size: 1.1rem;
     font-weight: 600;
 }
-.va-header-controls {
-    margin-left: auto;
-    display: flex;
-    gap: 0.5rem;
-}
-.va-header-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--messenger-user-bubble-light);
-    padding: 0.5rem;
-}
 
 /* --- Messages Area --- */
 .va-messages-container {
@@ -122,8 +110,7 @@ body.dark-mode .va-header {
     background-color: var(--messenger-header-dark);
     border-bottom-color: var(--messenger-border-dark);
 }
-body.dark-mode .va-back-btn,
-body.dark-mode .va-header-btn {
+body.dark-mode .va-back-btn {
     color: var(--messenger-user-bubble-dark);
 }
 body.dark-mode .va-header-info h2 {
