@@ -1,17 +1,13 @@
 {
   "name": "kided",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.0.0",
   "type": "module",
-"scripts": {
-  "dev": "vite",
-  "build": "vite build",
-  "preview": "vite preview",
-  "build:netlify": "npm run build && npm run preview",
-  "deploy": "netlify deploy --prod --dir=dist",
-  "firebase:deploy": "npm run build && firebase deploy",
-  "firebase:preview": "npm run build && firebase hosting:channel:deploy preview"
-},
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
   "dependencies": {
     "react": "^19.1.1",
     "@google/genai": "^1.19.0",
@@ -24,21 +20,5 @@
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
-  },
-  "description": "![KidEd Welcome Screen](https://raw.githubusercontent.com/masumhasan/eduplay/refs/heads/main/images/edubot.gif)",
-  "main": "index.js",
-  "directories": {
-    "lib": "lib"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/masumhasan/kided.git"
-  },
-  "keywords": [],
-  "author": "Nur Hasan Masum",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/masumhasan/kided/issues"
-  },
-  "homepage": "https://kided.netlify.app/"
+  }
 }

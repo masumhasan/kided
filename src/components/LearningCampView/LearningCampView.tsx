@@ -5,7 +5,7 @@ import { CardControls } from '../CardControls/CardControls';
 import './LearningCampView.css';
 
 // FIX: Import types to load global JSX definitions for the 'lottie-player' custom element.
-import '../../lib/types';
+import {} from '../../lib/types';
 
 
 type LearningCampViewProps = {
