@@ -6,7 +6,6 @@ import './ProfileView.css';
 
 type ProfileViewProps = {
     profile: UserProfile | null;
-    // FIX: Updated onSave prop type to align with App.tsx's handleSaveProfile, which doesn't expect `badges` to be passed.
     onSave: (profileData: Omit<UserProfile, 'uid' | 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'activityLog' | 'badges'>) => void;
     onClearData: () => void;
     onMinimize: () => void;

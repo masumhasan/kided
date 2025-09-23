@@ -44,11 +44,11 @@ const LearningCampView = ({ camp, progress, onAdvance, isLoading, onScanRequest,
         );
     }
     
-    const currentDayData = camp.days[progress.currentDay - 1];
-    const currentActivity = currentDayData?.activities[progress.currentActivityIndex];
+    const currentDayData = camp.days?.[progress.currentDay - 1];
+    const currentActivity = currentDayData?.activities?.[progress.currentActivityIndex];
 
     if (!currentActivity) {
-        // This can happen briefly when advancing a day
+        // This can happen briefly when advancing a day or if data is malformed
         return <LoadingView t={t} />;
     }
 
