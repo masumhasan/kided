@@ -1,6 +1,6 @@
-import React from 'react';
-
 // FIX: Changed to a full React import to allow extending the JSX namespace for custom elements.
+import 'react';
+
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -9,7 +9,8 @@ declare global {
         background?: string;
         speed?: string;
         loop?: boolean;
-        autoplay?: boolean;
+        // FIX: Changed property to camelCase 'autoPlay' to match React prop conventions and JSX usage.
+        autoPlay?: boolean;
       };
     }
   }

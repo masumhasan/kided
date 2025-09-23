@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-// FIX: Added a side-effect import to ensure TypeScript loads the global JSX definitions for the 'lottie-player' custom element, as type-only imports are elided during compilation.
-import '../../lib/types';
 import type { LearningCamp, CampProgress, CampActivity } from '../../lib/types';
+import { __FORCE_MODULE_EVALUATION } from '../../lib/types';
 import { LoadingView } from '../LoadingView/LoadingView';
 import { CardControls } from '../CardControls/CardControls';
 import './LearningCampView.css';
+
+// This line ensures the import is not tree-shaken, making JSX types available.
+if (false) console.log(__FORCE_MODULE_EVALUATION);
 
 type LearningCampViewProps = {
   camp: LearningCamp | null;
@@ -192,7 +194,7 @@ const LearningCampView = ({ camp, progress, onAdvance, isLoading, onScanRequest,
                                         src="https://assets10.lottiefiles.com/packages/lf20_u4yrau.json"
                                         background="transparent"
                                         speed="1"
-                                        autoplay
+                                        autoPlay
                                     ></lottie-player>
                                 </div>
                             )}

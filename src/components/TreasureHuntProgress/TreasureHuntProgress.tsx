@@ -1,7 +1,9 @@
 import React from 'react';
-// FIX: Replaced an unused type import with a side-effect import to ensure TypeScript loads the global JSX definitions for the 'lottie-player' custom element.
-import '../../lib/types';
+import { __FORCE_MODULE_EVALUATION } from '../../lib/types';
 import './TreasureHuntProgress.css';
+
+// This line ensures the import is not tree-shaken, making JSX types available.
+if (false) console.log(__FORCE_MODULE_EVALUATION);
 
 type TreasureHuntProgressProps = {
     current: number;
@@ -20,7 +22,7 @@ export const TreasureHuntProgress = ({ current, total, t }: TreasureHuntProgress
                         src="https://assets10.lottiefiles.com/packages/lf20_u4yrau.json"
                         background="transparent"
                         speed="1"
-                        autoplay
+                        autoPlay
                     ></lottie-player>
                 )}
                 <h2>{isComplete ? t('treasureHunt.objectiveComplete') : t('treasureHunt.objectiveFound')}</h2>
